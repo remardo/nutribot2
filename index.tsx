@@ -1,6 +1,7 @@
 import React, { ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { ConvexProvider, ConvexReactClient } from "convex/react";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -12,7 +13,6 @@ interface ErrorBoundaryState {
 }
 
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Use constructor to initialize state and ensure props are correctly typed
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {
@@ -49,6 +49,8 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
+const convex = new ConvexReactClient("https://dependable-frog-97.convex.cloud");
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   document.body.innerHTML = '<div style="color:red; padding:20px;">FATAL: Could not find root element</div>';
@@ -59,7 +61,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <ConvexProvider client={convex}>
+        <App />
+      </ConvexProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

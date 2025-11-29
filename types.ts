@@ -24,6 +24,8 @@ export interface DailyLogItem extends NutrientData {
   id: string;
   timestamp: number;
   note?: string;
+  imageUrl?: string | null;
+  imageId?: string; // Internal Convex Storage ID
 }
 
 export interface DailyStats {

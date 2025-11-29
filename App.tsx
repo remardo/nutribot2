@@ -1,12 +1,12 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Camera, Send, PieChart as ChartIcon, MessageSquare, Plus, ArrowLeft, Menu, X, User, Settings, FileText, Calendar, Book } from 'lucide-react';
 import { ChatMessage, DailyLogItem, NutrientData, DailyStats, DayStats } from './types';
 import ChatMessageBubble from './components/ChatMessageBubble';
 import DailyStatsDashboard from './components/DailyStatsDashboard';
 import FoodArchive from './components/FoodArchive';
-import { sendMessageToGemini } from './services/geminiService';
-import * as db from './services/dbService';
+import { useQuery, useMutation, useAction } from "convex/react";
+import { api } from "./convex/_generated/api";
+import { Id } from "./convex/_generated/dataModel";
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'chat' | 'stats' | 'archive'>('chat');
@@ -15,14 +15,50 @@ const App: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  // We now store ALL logs in state to support the Archive view
-  const [allLogs, setAllLogs] = useState<DailyLogItem[]>([]);
-  const [weeklyStats, setWeeklyStats] = useState<DayStats[]>([]);
+  // Convex Hooks
+  const logs = useQuery(api.food.getLogs) || [];
+  const addLogMutation = useMutation(api.food.addLog);
+  const updateLogMutation = useMutation(api.food.updateLog);
+  const deleteLogMutation = useMutation(api.food.deleteLog);
+  const generateUploadUrl = useMutation(api.food.generateUploadUrl);
+  const analyzeFoodAction = useAction(api.gemini.analyzeFood);
+
+  // Map Convex logs to App types (handling ID conversion)
+  const allLogs: DailyLogItem[] = useMemo(() => logs.map(log => ({
+    ...log,
+    id: log._id, // Map Convex _id to id
+  })), [logs]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Derived state for today's log (for Stats and Context)
+  // Calculate Weekly Stats on Client side from allLogs
+  const weeklyStats: DayStats[] = useMemo(() => {
+    const stats: DayStats[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateString = d.toDateString(); 
+      
+      const dayLogs = allLogs.filter(item => new Date(item.timestamp).toDateString() === dateString);
+      
+      const dayStats = dayLogs.reduce((acc, item) => ({
+        calories: acc.calories + item.calories,
+        protein: acc.protein + item.protein,
+        fat: acc.fat + item.fat,
+        carbs: acc.carbs + item.carbs,
+        fiber: acc.fiber + item.fiber
+      }), { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0 });
+        
+      stats.push({
+        date: d.toLocaleDateString('ru-RU', { weekday: 'short' }),
+        ...dayStats
+      });
+    }
+    return stats;
+  }, [allLogs]);
+
+  // Derived state for today's log
   const todayLog = useMemo(() => {
     const today = new Date().toDateString();
     return allLogs.filter(item => new Date(item.timestamp).toDateString() === today);
@@ -30,16 +66,11 @@ const App: React.FC = () => {
 
   // Initial load and Telegram Init
   useEffect(() => {
-    // Initialize Telegram Web App
     const tg = window.Telegram?.WebApp;
     if (tg) {
       tg.ready();
       tg.expand();
     }
-
-    // Load all logs
-    setAllLogs(db.getAllLogs());
-    setWeeklyStats(db.getLast7DaysStats());
     
     // Initial bot message
     setMessages([
@@ -84,17 +115,18 @@ const App: React.FC = () => {
     }
   }, [messages, activeTab]);
 
-  const handleSendMessage = async (text?: string, image?: string) => {
+  const handleSendMessage = async (text?: string, imageFile?: File, imagePreview?: string) => {
     const content = text || inputText;
-    if ((!content.trim() && !image) || isLoading) return;
+    if ((!content.trim() && !imageFile) || isLoading) return;
 
     setInputText('');
     
+    // Optimistic User Message
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
       text: content,
-      image: image,
+      image: imagePreview, // For display only
       timestamp: Date.now()
     };
 
@@ -102,28 +134,44 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Calculate current stats to give context to Gemini
-      const stats = todayLog.reduce((acc, item) => ({
+      let imageStorageId: Id<"_storage"> | undefined = undefined;
+
+      // 1. Upload Image to Convex Storage if exists
+      if (imageFile) {
+        const postUrl = await generateUploadUrl();
+        const result = await fetch(postUrl, {
+          method: "POST",
+          headers: { "Content-Type": imageFile.type },
+          body: imageFile,
+        });
+        const { storageId } = await result.json();
+        imageStorageId = storageId;
+      }
+
+      // 2. Prepare context stats
+      const currentStats = todayLog.reduce((acc, item) => ({
         totalCalories: acc.totalCalories + item.calories,
         totalProtein: acc.totalProtein + item.protein,
         totalFat: acc.totalFat + item.fat,
         totalCarbs: acc.totalCarbs + item.carbs,
         totalFiber: acc.totalFiber + item.fiber
-      }), {
-         totalCalories: 0,
-         totalProtein: 0,
-         totalFat: 0,
-         totalCarbs: 0,
-         totalFiber: 0
-      } as DailyStats);
+      }), { totalCalories: 0, totalProtein: 0, totalFat: 0, totalCarbs: 0, totalFiber: 0 });
 
-      const response = await sendMessageToGemini(messages, content, image, stats);
+      const statsString = `[Текущие итоги дня: ${Math.round(currentStats.totalCalories)}ккал, Б:${currentStats.totalProtein.toFixed(1)}г, Ж:${currentStats.totalFat.toFixed(1)}г, У:${currentStats.totalCarbs.toFixed(1)}г]`;
+      
+      // 3. Call Server Action
+      const response = await analyzeFoodAction({
+        message: content,
+        imageStorageId,
+        history: messages.slice(-6).map(m => ({ role: m.role, text: m.text })),
+        currentStats: statsString,
+      });
 
       const botMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'model',
         text: response.text,
-        data: response.data,
+        data: response.data ? { ...response.data, imageStorageId } : undefined, // Attach storageId to data for saving later
         timestamp: Date.now()
       };
 
@@ -131,6 +179,12 @@ const App: React.FC = () => {
 
     } catch (error) {
       console.error(error);
+      setMessages(prev => [...prev, {
+        id: crypto.randomUUID(),
+        role: 'model',
+        text: "Произошла ошибка при обращении к серверу. Попробуйте позже.",
+        timestamp: Date.now()
+      }]);
     } finally {
       setIsLoading(false);
     }
@@ -139,40 +193,47 @@ const App: React.FC = () => {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Create local preview
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        handleSendMessage("Проанализируй это изображение", base64);
+        // Send file object for upload, base64 for local preview
+        handleSendMessage("Проанализируй это изображение", file, base64);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleAddToLog = (data: NutrientData) => {
-    const newItem = db.addToDailyLog(data);
-    
-    // Update local state by adding new item at the beginning (assuming descending order) or just reload
-    // Since we are sorting descending in getAllLogs, let's prepend
-    setAllLogs(prev => [newItem, ...prev].sort((a,b) => b.timestamp - a.timestamp));
-    setWeeklyStats(db.getLast7DaysStats()); // Update chart data
+  const handleAddToLog = async (data: NutrientData & { imageStorageId?: string }) => {
+    await addLogMutation({
+        name: data.name,
+        calories: data.calories,
+        protein: data.protein,
+        fat: data.fat,
+        carbs: data.carbs,
+        fiber: data.fiber,
+        omega3to6Ratio: data.omega3to6Ratio,
+        ironType: data.ironType,
+        importantNutrients: data.importantNutrients,
+        timestamp: Date.now(),
+        imageId: data.imageStorageId as Id<"_storage"> | undefined,
+    });
     
     // Switch to stats to show progress
     setActiveTab('stats');
   };
 
-  const handleUpdateLog = (id: string, updates: Partial<DailyLogItem>) => {
-    const updatedLogs = db.updateLogItem(id, updates);
-    setAllLogs(updatedLogs.sort((a, b) => b.timestamp - a.timestamp));
-    // Usually stats don't change if we only edit the note, but good to keep consistent
-    setWeeklyStats(db.getLast7DaysStats());
+  const handleUpdateLog = async (id: string, updates: Partial<DailyLogItem>) => {
+    // Only pass fields that allow updating. Currently 'note' is the main one.
+    await updateLogMutation({
+        id: id as Id<"dailyLogs">,
+        note: updates.note,
+    });
   };
 
-  const handleDeleteLog = (id: string) => {
+  const handleDeleteLog = async (id: string) => {
     if (window.confirm('Вы уверены, что хотите удалить эту запись?')) {
-      db.deleteLogItem(id);
-      // Update state
-      setAllLogs(prev => prev.filter(item => item.id !== id));
-      setWeeklyStats(db.getLast7DaysStats()); // Recalculate stats
+      await deleteLogMutation({ id: id as Id<"dailyLogs"> });
     }
   };
 
@@ -217,16 +278,6 @@ const App: React.FC = () => {
             </div>
             
             <div className="p-4">
-              <div className="flex items-center gap-3 p-3 bg-gray-700/30 rounded-xl mb-6 border border-gray-700">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-lg font-bold shadow-inner text-white">
-                  U
-                </div>
-                <div>
-                  <div className="font-semibold text-white">Пользователь</div>
-                  <div className="text-xs text-gray-400">user@example.com</div>
-                </div>
-              </div>
-
               <nav className="space-y-1">
                 <button 
                   onClick={() => handleNavigate('chat')}
@@ -249,17 +300,11 @@ const App: React.FC = () => {
                   <Book size={20} />
                   Архив блюд
                 </button>
-                <div className="pt-4 mt-4 border-t border-gray-700/50">
-                  <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-700/30 transition-colors">
-                    <Settings size={20} />
-                    Настройки
-                  </button>
-                </div>
               </nav>
             </div>
             
             <div className="mt-auto p-5 text-xs text-center text-gray-500 border-t border-gray-700">
-              NutriBot AI v1.0.0
+              NutriBot AI (Convex Backend)
             </div>
           </div>
         </div>
@@ -318,7 +363,7 @@ const App: React.FC = () => {
                                 <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animation-delay-200"></span>
                                 <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animation-delay-400"></span>
                             </div>
-                            Анализирую...
+                            Анализирую (на сервере)...
                         </div>
                     </div>
                 )}

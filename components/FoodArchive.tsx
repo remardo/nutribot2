@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { DailyLogItem } from '../types';
-import { Calendar, Trash2, Clock, Flame, Dumbbell, Droplet, Wheat, Search, X, Filter, Download, MessageSquare, Check, Edit2, Save } from 'lucide-react';
+import { Calendar, Trash2, Clock, Flame, Dumbbell, Droplet, Wheat, Search, X, Filter, Download, MessageSquare, Check, Edit2, Save, Image as ImageIcon } from 'lucide-react';
 
 interface Props {
   logs: DailyLogItem[];
@@ -15,27 +15,25 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
   const [noteText, setNoteText] = useState<string>('');
   const [lastAutoSaved, setLastAutoSaved] = useState<Date | null>(null);
 
-  // Ref to hold current text for the interval closure to access without dependency cycles
   const noteTextRef = useRef(noteText);
 
   useEffect(() => {
     noteTextRef.current = noteText;
   }, [noteText]);
 
-  // Auto-save Interval (30 seconds)
+  // Auto-save Interval
   useEffect(() => {
     let interval: number | undefined;
     
     if (editingId) {
       setLastAutoSaved(null);
-      // Use window.setInterval to strictly return a number (browser type)
       interval = window.setInterval(() => {
         if (editingId && noteTextRef.current) {
           console.log('Auto-saving note...');
           onUpdate(editingId, { note: noteTextRef.current });
           setLastAutoSaved(new Date());
         }
-      }, 30000); // 30 seconds
+      }, 30000); 
     }
 
     return () => {
@@ -47,7 +45,6 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
     if (!filterDate) return logs;
     return logs.filter(item => {
       const d = new Date(item.timestamp);
-      // Format as YYYY-MM-DD for comparison with input type="date" value
       const year = d.getFullYear();
       const month = String(d.getMonth() + 1).padStart(2, '0');
       const day = String(d.getDate()).padStart(2, '0');
@@ -58,8 +55,6 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
 
   const groupedLogs = useMemo(() => {
     const groups: Record<string, DailyLogItem[]> = {};
-    
-    // Sort logs descending by timestamp before grouping
     const sorted = [...filteredLogs].sort((a, b) => b.timestamp - a.timestamp);
 
     sorted.forEach(item => {
@@ -79,7 +74,6 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
 
   const dates = Object.keys(groupedLogs);
   
-  // Calculate summary for the current view
   const summary = useMemo(() => {
     return filteredLogs.reduce((acc, item) => ({
         calories: acc.calories + item.calories,
@@ -92,7 +86,6 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
   const handleExport = () => {
     if (filteredLogs.length === 0) return;
 
-    // CSV Headers
     const headers = [
         "Дата", 
         "Время", 
@@ -107,13 +100,11 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
         "Примечание"
     ];
 
-    // Map data to CSV rows
     const rows = filteredLogs.map(item => {
         const dateObj = new Date(item.timestamp);
         const date = dateObj.toLocaleDateString('ru-RU');
         const time = dateObj.toLocaleTimeString('ru-RU');
         
-        // Escape quotes in name to prevent CSV issues
         const safeName = `"${item.name.replace(/"/g, '""')}"`; 
         const safeIron = `"${item.ironType}"`;
         const safeOmega = `"${item.omega3to6Ratio}"`;
@@ -134,13 +125,8 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
         ].join(',');
     });
 
-    // Combine headers and rows
     const csvContent = [headers.join(','), ...rows].join('\n');
-
-    // Add BOM (Byte Order Mark) so Excel opens UTF-8 Cyrillic correctly
     const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    
-    // Create download link
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -170,13 +156,9 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
-    // If the related target (element receiving focus) is the cancel button, 
-    // do not save, let the cancel click handler do its job.
     if (e.relatedTarget && (e.relatedTarget as HTMLElement).dataset.action === 'cancel') {
       return;
     }
-    
-    // Otherwise, save on blur
     if (editingId) {
       saveNote(editingId);
     }
@@ -203,14 +185,12 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
                 ? 'bg-gray-800 border-gray-700 text-gray-600 cursor-not-allowed' 
                 : 'bg-gray-800 border-gray-600 text-blue-400 hover:bg-gray-700 hover:text-white hover:border-blue-500 shadow-sm'
             }`}
-            title="Экспорт в CSV"
          >
             <Download size={20} />
             <span className="hidden sm:inline text-sm font-medium">Экспорт</span>
          </button>
       </div>
 
-      {/* Filter Bar */}
       <div className="bg-gray-800 p-3 rounded-xl border border-gray-700 shadow-sm">
         <div className="flex items-center gap-2">
             <Filter size={16} className="text-gray-400" />
@@ -229,7 +209,6 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
                 <button 
                     onClick={() => setFilterDate('')}
                     className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center"
-                    title="Сбросить фильтр"
                 >
                     <X size={18} />
                 </button>
@@ -237,7 +216,6 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
         </div>
       </div>
 
-      {/* Summary Card (Visible if logs exist) */}
       {filteredLogs.length > 0 && (
           <div className="grid grid-cols-4 gap-2 bg-gray-800/50 p-3 rounded-xl border border-gray-700/50">
               <div className="text-center">
@@ -259,7 +237,6 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
           </div>
       )}
 
-      {/* Empty State */}
       {filteredLogs.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12 text-gray-500 text-center">
           <Search size={48} className="mb-4 opacity-30" />
@@ -278,7 +255,6 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
         </div>
       )}
 
-      {/* List */}
       {dates.map((date) => {
         const dayItems = groupedLogs[date];
         const dayTotalKcal = dayItems.reduce((sum, i) => sum + i.calories, 0);
@@ -297,7 +273,14 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
                 <div key={item.id} className="bg-gray-800 rounded-xl p-3 border border-gray-700 shadow-sm relative group hover:border-gray-600 transition-colors">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex-1 pr-8">
-                      <div className="font-bold text-gray-200 text-base leading-tight">{item.name}</div>
+                      <div className="flex items-center gap-2">
+                         <div className="font-bold text-gray-200 text-base leading-tight">{item.name}</div>
+                         {item.imageUrl && (
+                           <a href={item.imageUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400">
+                             <ImageIcon size={14} />
+                           </a>
+                         )}
+                      </div>
                       <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                         <Clock size={10} />
                         {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -319,7 +302,6 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
                     </div>
                   </div>
 
-                  {/* Note Section */}
                   <div className="mt-2 border-t border-gray-700/50 pt-2">
                     {editingId === item.id ? (
                       <div className="animate-fade-in relative">
