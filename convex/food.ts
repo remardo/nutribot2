@@ -30,7 +30,7 @@ export const getLogs = query({
       throw new Error("User not authenticated");
     }
 
-    // Получаем только логи текущего пользователя
+    // Получаем логи текущего пользователя
     const logs = await ctx.db.query("dailyLogs")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
@@ -52,7 +52,7 @@ export const getLogs = query({
 
 export const addLog = mutation({
   args: {
-    userId: v.string(), // Telegram user ID
+    userId: v.optional(v.string()), // Telegram user ID (опционально)
     name: v.string(),
     calories: v.number(),
     protein: v.number(),
@@ -66,7 +66,15 @@ export const addLog = mutation({
     imageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("dailyLogs", args);
+    // Если userId не передан, пытаемся получить его из контекста
+    const finalUserId = args.userId || getCurrentUserId(ctx) || undefined;
+    
+    const logData = {
+      ...args,
+      userId: finalUserId,
+    };
+    
+    return await ctx.db.insert("dailyLogs", logData);
   },
 });
 

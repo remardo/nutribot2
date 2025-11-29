@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 export default defineSchema({
   dailyLogs: defineTable({
-    userId: v.string(), // Telegram user ID для привязки к аккаунту
+    userId: v.optional(v.string()), // Telegram user ID для привязки к аккаунту (опционально для обратной совместимости)
     name: v.string(),
     calories: v.number(),
     protein: v.number(),

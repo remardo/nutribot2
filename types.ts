@@ -24,7 +24,7 @@ export interface ChatMessage {
 
 export interface DailyLogItem extends NutrientData {
   id: string;
-  userId: string; // Telegram user ID
+  userId?: string; // Telegram user ID (опционально для обратной совместимости)
   timestamp: number;
   note?: string;
   imageUrl?: string | null;
