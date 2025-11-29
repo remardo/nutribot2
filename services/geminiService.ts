@@ -41,28 +41,6 @@ const SYSTEM_INSTRUCTION = `
 Контекст: Пользователь ведет дневник питания.
 `;
 
-// Helper to safely get API key in both Vite and Node environments
-const getApiKey = () => {
-  try {
-    // @ts-ignore
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
-      // @ts-ignore
-      return import.meta.env.VITE_API_KEY;
-    }
-  } catch (e) {
-    // ignore
-  }
-  
-  try {
-    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-      return process.env.API_KEY;
-    }
-  } catch (e) {
-    // ignore
-  }
-  return '';
-};
-
 export const sendMessageToGemini = async (
   history: ChatMessage[],
   newMessage: string,
@@ -70,15 +48,8 @@ export const sendMessageToGemini = async (
   currentStats?: DailyStats
 ): Promise<{ text: string; data: any | null }> => {
   try {
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      return {
-        text: "Ошибка: API ключ не найден. Проверьте настройки .env (VITE_API_KEY).",
-        data: null
-      };
-    }
-
-    const ai = new GoogleGenAI({ apiKey: apiKey });
+    // Initialize Gemini API client using the environment variable directly as per guidelines
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const model = ai.models;
     
     // Construct prompt history

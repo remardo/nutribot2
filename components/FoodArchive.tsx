@@ -24,11 +24,12 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
 
   // Auto-save Interval (30 seconds)
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
+    let interval: number | undefined;
     
     if (editingId) {
       setLastAutoSaved(null);
-      interval = setInterval(() => {
+      // Use window.setInterval to strictly return a number (browser type)
+      interval = window.setInterval(() => {
         if (editingId && noteTextRef.current) {
           console.log('Auto-saving note...');
           onUpdate(editingId, { note: noteTextRef.current });
