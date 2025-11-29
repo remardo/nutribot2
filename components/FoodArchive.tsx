@@ -97,6 +97,7 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
         "Клетчатка (г)",
         "Омега 3:6",
         "Тип железа",
+        "Важные нутриенты",
         "Примечание"
     ];
 
@@ -109,6 +110,7 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
         const safeIron = `"${item.ironType}"`;
         const safeOmega = `"${item.omega3to6Ratio}"`;
         const safeNote = item.note ? `"${item.note.replace(/"/g, '""')}"` : "";
+        const safeNutrients = item.importantNutrients ? `"${item.importantNutrients.join('; ')}"` : "";
 
         return [
             date,
@@ -121,6 +123,7 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
             item.fiber,
             safeOmega,
             safeIron,
+            safeNutrients,
             safeNote
         ].join(',');
     });
@@ -377,6 +380,19 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
                         <span className="font-medium text-gray-300 text-xs">{item.carbs}</span>
                      </div>
                   </div>
+
+                  {item.importantNutrients && item.importantNutrients.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-gray-700/30">
+                       <span className="text-[10px] text-gray-500 block mb-1">Важные нутриенты:</span>
+                       <div className="flex flex-wrap gap-1">
+                         {item.importantNutrients.map((nutrient, idx) => (
+                           <span key={idx} className="text-[10px] bg-indigo-900/30 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/20">
+                             {nutrient}
+                           </span>
+                         ))}
+                       </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
