@@ -6,9 +6,10 @@ interface Props {
   message: ChatMessage;
   onAddLog?: (data: NutrientData & { imageStorageId?: string }) => void;
   isAdded?: boolean;
+  autoSaved?: boolean; // Новый prop для индикации автосохранения
 }
 
-const ChatMessageBubble: React.FC<Props> = ({ message, onAddLog, isAdded }) => {
+const ChatMessageBubble: React.FC<Props> = ({ message, onAddLog, isAdded, autoSaved }) => {
   const isUser = message.role === 'user';
 
   return (
@@ -89,25 +90,22 @@ const ChatMessageBubble: React.FC<Props> = ({ message, onAddLog, isAdded }) => {
                )}
             </div>
 
-            {onAddLog && (
-              <button
-                onClick={() => onAddLog(message.data!)}
-                disabled={isAdded}
-                className={`w-full py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                  isAdded
-                    ? 'bg-green-600/20 text-green-400 cursor-default'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white'
-                }`}
-              >
-                {isAdded ? (
-                  <>✓ Добавлено</>
-                ) : (
-                  <>
-                    <Database size={14} /> Добавить в дневник
-                  </>
-                )}
-              </button>
-            )}
+            {/* Автосохранение индикация */}
+            <div className="flex items-center justify-center py-2">
+              {autoSaved || isAdded ? (
+                <div className="flex items-center gap-2 text-green-400 text-sm">
+                  <Database size={14} />
+                  ✓ Автоматически сохранено в дневник
+                </div>
+              ) : onAddLog ? (
+                <button
+                  onClick={() => onAddLog(message.data!)}
+                  className="w-full py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors bg-blue-600 hover:bg-blue-500 text-white"
+                >
+                  <Database size={14} /> Добавить в дневник
+                </button>
+              ) : null}
+            </div>
           </div>
         )}
 

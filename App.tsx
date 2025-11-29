@@ -32,6 +32,19 @@ const App: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Handle Telegram Camera Button
+  const handleTelegramCamera = () => {
+    const tg = window.Telegram?.WebApp;
+    if (tg?.MainButton) {
+      tg.MainButton.text = "Отправить фото";
+      tg.MainButton.show();
+      tg.MainButton.onClick(() => {
+        // Use regular file input as fallback for now
+        fileInputRef.current?.click();
+      });
+    }
+  };
+
   // Calculate Weekly Stats on Client side from allLogs
   const weeklyStats: DayStats[] = useMemo(() => {
     const stats: DayStats[] = [];
@@ -70,6 +83,7 @@ const App: React.FC = () => {
     if (tg) {
       tg.ready();
       tg.expand();
+      console.log('Telegram Web App initialized');
     }
     
     // Initial bot message
@@ -82,6 +96,13 @@ const App: React.FC = () => {
       }
     ]);
   }, []);
+
+  // Debug logs for Convex data
+  useEffect(() => {
+    console.log('Convex logs updated:', logs?.length || 0, 'items');
+    console.log('Today log items:', todayLog?.length || 0);
+    console.log('All logs:', allLogs);
+  }, [logs, todayLog, allLogs]);
 
   // Handle Telegram Back Button
   useEffect(() => {
@@ -138,14 +159,25 @@ const App: React.FC = () => {
 
       // 1. Upload Image to Convex Storage if exists
       if (imageFile) {
-        const postUrl = await generateUploadUrl();
-        const result = await fetch(postUrl, {
-          method: "POST",
-          headers: { "Content-Type": imageFile.type },
-          body: imageFile,
-        });
-        const { storageId } = await result.json();
-        imageStorageId = storageId;
+        try {
+          const postUrl = await generateUploadUrl();
+          const result = await fetch(postUrl, {
+            method: "POST",
+            headers: { "Content-Type": imageFile.type },
+            body: imageFile,
+          });
+          
+          if (!result.ok) {
+            throw new Error(`Upload failed: ${result.status}`);
+          }
+          
+          const { storageId } = await result.json();
+          imageStorageId = storageId;
+          console.log('Image uploaded successfully:', storageId);
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError);
+          // Continue without image - not critical for analysis
+        }
       }
 
       // 2. Prepare context stats with validation
@@ -177,6 +209,30 @@ const App: React.FC = () => {
 
       setMessages(prev => [...prev, botMsg]);
 
+      // Auto-save to log if analysis was successful and has valid data
+      if (response.data && response.data.name && response.data.calories > 0) {
+        try {
+          await addLogMutation({
+            name: response.data.name,
+            calories: response.data.calories,
+            protein: response.data.protein,
+            fat: response.data.fat,
+            carbs: response.data.carbs,
+            fiber: response.data.fiber,
+            omega3to6Ratio: response.data.omega3to6Ratio,
+            ironType: response.data.ironType,
+            importantNutrients: response.data.importantNutrients,
+            timestamp: Date.now(),
+            imageId: imageStorageId as Id<"_storage"> | undefined,
+          });
+          
+          console.log('Successfully saved analysis to log:', response.data.name);
+        } catch (saveError) {
+          console.error('Failed to save to log:', saveError);
+          // Don't show error to user, just log it
+        }
+      }
+
     } catch (error) {
       console.error("Food analysis error:", error);
       
@@ -184,13 +240,24 @@ const App: React.FC = () => {
       
       // Более детальная обработка ошибок
       if (error instanceof Error) {
-        if (error.message.includes('API Key')) {
-          errorMessage = "Ошибка конфигурации API ключа. Обратитесь к администратору.";
-        } else if (error.message.includes('network') || error.message.includes('fetch')) {
-          errorMessage = "Проблема с сетевым подключением. Проверьте интернет.";
+        if (error.message.includes('API Key') || error.message.includes('Unauthorized')) {
+          errorMessage = "❌ Ошибка конфигурации API ключа. Обратитесь к администратору.";
+        } else if (error.message.includes('network') || error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+          errorMessage = "❌ Проблема с сетевым подключением. Проверьте интернет.";
         } else if (error.message.includes('timeout')) {
-          errorMessage = "Запрос занял слишком много времени. Попробуйте позже.";
+          errorMessage = "❌ Запрос занял слишком много времени. Попробуйте позже.";
+        } else if (error.message.includes('413') || error.message.includes('payload too large')) {
+          errorMessage = "❌ Файл слишком большой. Попробуйте меньшее изображение.";
+        } else if (error.message.includes('CORS') || error.message.includes('cross-origin')) {
+          errorMessage = "❌ Ошибка CORS. Проверьте настройки домена.";
         }
+        
+        // Логируем детали ошибки для отладки
+        console.log("Error details:", {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
       }
       
       setMessages(prev => [...prev, {
@@ -208,15 +275,25 @@ const App: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Проверяем тип файла
+    // Валидация файла
     if (!file.type.startsWith('image/')) {
-      alert('Пожалуйста, выберите изображение');
+      setMessages(prev => [...prev, {
+        id: crypto.randomUUID(),
+        role: 'model',
+        text: "❌ Пожалуйста, выберите изображение.",
+        timestamp: Date.now()
+      }]);
       return;
     }
     
     // Проверяем размер файла (макс 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      alert('Размер файла не должен превышать 10MB');
+      setMessages(prev => [...prev, {
+        id: crypto.randomUUID(),
+        role: 'model',
+        text: "❌ Размер файла не должен превышать 10MB.",
+        timestamp: Date.now()
+      }]);
       return;
     }
     
@@ -224,11 +301,15 @@ const App: React.FC = () => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64 = reader.result as string;
-      // Отправляем файл для загрузки, base64 для локального предпросмотра
       handleSendMessage("Проанализируй это изображение", file, base64);
     };
     reader.onerror = () => {
-      alert('Ошибка при чтении файла');
+      setMessages(prev => [...prev, {
+        id: crypto.randomUUID(),
+        role: 'model',
+        text: "❌ Ошибка при чтении файла.",
+        timestamp: Date.now()
+      }]);
     };
     reader.readAsDataURL(file);
     
@@ -383,8 +464,9 @@ const App: React.FC = () => {
                     <ChatMessageBubble 
                         key={msg.id} 
                         message={msg} 
-                        onAddLog={handleAddToLog} 
+                        onAddLog={undefined} // Автосохранение - кнопка не нужна
                         isAdded={msg.data && allLogs.some(log => log.name === msg.data?.name && Math.abs(log.timestamp - msg.timestamp) < 60000)} 
+                        autoSaved={msg.data && allLogs.some(log => log.name === msg.data?.name && Math.abs(log.timestamp - msg.timestamp) < 60000)}
                     />
                 ))}
                 {isLoading && (
