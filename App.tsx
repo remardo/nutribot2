@@ -32,19 +32,6 @@ const App: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Handle Telegram Camera Button
-  const handleTelegramCamera = () => {
-    const tg = window.Telegram?.WebApp;
-    if (tg?.MainButton) {
-      tg.MainButton.text = "Отправить фото";
-      tg.MainButton.show();
-      tg.MainButton.onClick(() => {
-        // Use regular file input as fallback for now
-        fileInputRef.current?.click();
-      });
-    }
-  };
-
   // Calculate Weekly Stats on Client side from allLogs
   const weeklyStats: DayStats[] = useMemo(() => {
     const stats: DayStats[] = [];
@@ -315,25 +302,6 @@ const App: React.FC = () => {
     
     // Очищаем input для повторной загрузки того же файла
     e.target.value = '';
-  };
-
-  const handleAddToLog = async (data: NutrientData & { imageStorageId?: string }) => {
-    await addLogMutation({
-        name: data.name,
-        calories: data.calories,
-        protein: data.protein,
-        fat: data.fat,
-        carbs: data.carbs,
-        fiber: data.fiber,
-        omega3to6Ratio: data.omega3to6Ratio,
-        ironType: data.ironType,
-        importantNutrients: data.importantNutrients,
-        timestamp: Date.now(),
-        imageId: data.imageStorageId as Id<"_storage"> | undefined,
-    });
-    
-    // Switch to stats to show progress
-    setActiveTab('stats');
   };
 
   const handleUpdateLog = async (id: string, updates: Partial<DailyLogItem>) => {
