@@ -257,8 +257,8 @@ const App: React.FC = () => {
 
       setMessages(prev => [...prev, botMsg]);
 
-      // Auto-save to log if analysis was successful and has valid data (only if authenticated)
-      if (response.data && response.data.name && response.data.calories > 0 && isAuthenticated) {
+      // Auto-save to log if analysis is successful and has valid data (also works in demo mode)
+      if (response.data && response.data.name && response.data.calories > 0) {
         try {
           // Check if this is a correction of an existing entry
           if (response.data.isCorrection) {

@@ -27,17 +27,20 @@ export const getLogs = query({
     // Получаем ID пользователя из Telegram WebApp
     const userId = getCurrentUserId(ctx);
     
-    // Если пользователь не аутентифицирован, возвращаем пустой массив
+    let logs;
     if (!userId) {
-      console.log("User not authenticated, returning empty logs");
-      return [];
+      // Если пользователь не аутентифицирован, показываем все записи для демо
+      console.log("User not authenticated, showing all logs for demo");
+      logs = await ctx.db.query("dailyLogs")
+        .order("desc")
+        .collect();
+    } else {
+      // Получаем логи текущего пользователя
+      logs = await ctx.db.query("dailyLogs")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .order("desc")
+        .collect();
     }
-
-    // Получаем логи текущего пользователя
-    const logs = await ctx.db.query("dailyLogs")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .order("desc")
-      .collect();
     
     // Генерируем URL для изображений, если они есть
     return await Promise.all(logs.map(async (log) => {
