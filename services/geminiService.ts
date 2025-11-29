@@ -48,12 +48,23 @@ export const sendMessageToGemini = async (
   currentStats?: DailyStats
 ): Promise<{ text: string; data: any | null }> => {
   try {
-    const apiKey = process.env.API_KEY;
+    // Attempt to get API key from Vite environment or Node environment
+    let apiKey = '';
+    try {
+      // @ts-ignore
+      apiKey = import.meta.env.VITE_API_KEY;
+    } catch (e) {
+      // Ignore if import.meta is not available
+    }
+
+    if (!apiKey) {
+      apiKey = process.env.API_KEY || '';
+    }
     
     if (!apiKey) {
-      console.error("API Key is missing. Make sure API_KEY is set in environment variables.");
+      console.error("API Key is missing. Make sure VITE_API_KEY is set in environment variables.");
       return {
-        text: "Ошибка конфигурации: API ключ не найден. Пожалуйста, проверьте настройки (API_KEY).",
+        text: "Ошибка конфигурации: API ключ не найден. \n\n1. Если вы на Vercel: Добавьте переменную `VITE_API_KEY` в Settings -> Environment Variables и сделайте Redeploy.\n2. Если локально: Добавьте `VITE_API_KEY` в файл .env",
         data: null
       };
     }
