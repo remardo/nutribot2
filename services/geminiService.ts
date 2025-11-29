@@ -48,9 +48,17 @@ export const sendMessageToGemini = async (
   currentStats?: DailyStats
 ): Promise<{ text: string; data: any | null }> => {
   try {
-    // Initialize Gemini API client using the environment variable directly as per guidelines
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const model = ai.models;
+    const apiKey = process.env.API_KEY;
+    
+    if (!apiKey) {
+      console.error("API Key is missing. Make sure API_KEY is set in environment variables.");
+      return {
+        text: "Ошибка конфигурации: API ключ не найден. Пожалуйста, проверьте настройки (API_KEY).",
+        data: null
+      };
+    }
+
+    const ai = new GoogleGenAI({ apiKey: apiKey });
     
     // Construct prompt history
     // We limit history to last 10 messages to avoid context limits and keep it relevant
@@ -92,7 +100,7 @@ export const sendMessageToGemini = async (
       });
     }
 
-    const response: GenerateContentResponse = await model.generateContent({
+    const response: GenerateContentResponse = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: {
         role: 'user',
