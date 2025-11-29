@@ -28,6 +28,44 @@ const NutritionProgressBar: React.FC<NutritionProgressBarProps> = ({ progress, i
     return `${Math.round(value)}${unit}`;
   };
 
+  const macroBlocks = [
+    {
+      label: "🔥 Калории",
+      current: progress.calories.current,
+      goal: progress.calories.goal,
+      percentage: progress.calories.percentage,
+      unit: " ккал",
+    },
+    {
+      label: "🥩 Белки",
+      current: progress.protein.current,
+      goal: progress.protein.goal,
+      percentage: progress.protein.percentage,
+      unit: "г",
+    },
+    {
+      label: "🧈 Жиры",
+      current: progress.fat.current,
+      goal: progress.fat.goal,
+      percentage: progress.fat.percentage,
+      unit: "г",
+    },
+    {
+      label: "🍞 Углеводы",
+      current: progress.carbs.current,
+      goal: progress.carbs.goal,
+      percentage: progress.carbs.percentage,
+      unit: "г",
+    },
+    {
+      label: "🌿 Клетчатка",
+      current: progress.fiber.current,
+      goal: progress.fiber.goal,
+      percentage: progress.fiber.percentage,
+      unit: "г",
+    },
+  ];
+
   return (
     <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-xl p-4 mb-4">
       <div className="flex items-center gap-2 mb-3">
@@ -36,71 +74,29 @@ const NutritionProgressBar: React.FC<NutritionProgressBarProps> = ({ progress, i
       </div>
       
       <div className="space-y-3">
-        {/* Калории */}
-        <div className="space-y-1">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300 text-sm flex items-center gap-2">
-              🔥 Калории
-              <span className="text-gray-500">
-                {formatValue(progress.calories.current, '')} / {formatValue(progress.calories.goal, ' ккал')}
+        {macroBlocks.map((item) => (
+          <div className="space-y-1" key={item.label}>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-300 text-sm flex items-center gap-2">
+                {item.label}
+                <span className="text-gray-500">
+                  {formatValue(item.current, item.unit)} / {formatValue(item.goal, item.unit)}
+                </span>
               </span>
-            </span>
-            <span className={`text-sm font-medium ${getProgressTextColor(progress.calories.percentage)}`}>
-              {Math.round(progress.calories.percentage)}%
-            </span>
-          </div>
-          <div className="w-full bg-gray-700 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(progress.calories.percentage)}`}
-              style={{ width: `${Math.min(progress.calories.percentage, 100)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Белки */}
-        <div className="space-y-1">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300 text-sm flex items-center gap-2">
-              🥩 Белки
-              <span className="text-gray-500">
-                {formatValue(progress.protein.current, 'г')} / {formatValue(progress.protein.goal, 'г')}
+              <span className={`text-sm font-medium ${getProgressTextColor(item.percentage)}`}>
+                {Math.round(item.percentage)}%
               </span>
-            </span>
-            <span className={`text-sm font-medium ${getProgressTextColor(progress.protein.percentage)}`}>
-              {Math.round(progress.protein.percentage)}%
-            </span>
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-2">
+              <div
+                className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(item.percentage)}`}
+                style={{ width: `${Math.min(item.percentage, 100)}%` }}
+              />
+            </div>
           </div>
-          <div className="w-full bg-gray-700 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(progress.protein.percentage)}`}
-              style={{ width: `${Math.min(progress.protein.percentage, 100)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Клетчатка */}
-        <div className="space-y-1">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300 text-sm flex items-center gap-2">
-              🌾 Клетчатка
-              <span className="text-gray-500">
-                {formatValue(progress.fiber.current, 'г')} / {formatValue(progress.fiber.goal, 'г')}
-              </span>
-            </span>
-            <span className={`text-sm font-medium ${getProgressTextColor(progress.fiber.percentage)}`}>
-              {Math.round(progress.fiber.percentage)}%
-            </span>
-          </div>
-          <div className="w-full bg-gray-700 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(progress.fiber.percentage)}`}
-              style={{ width: `${Math.min(progress.fiber.percentage, 100)}%` }}
-            />
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Общий прогресс */}
       <div className="mt-4 pt-3 border-t border-gray-700">
         <div className="flex items-center justify-between">
           <span className="text-gray-400 text-xs flex items-center gap-1">
@@ -108,7 +104,7 @@ const NutritionProgressBar: React.FC<NutritionProgressBarProps> = ({ progress, i
             Общий прогресс
           </span>
           <div className="flex items-center gap-1">
-            {progress.calories.percentage >= 100 && progress.protein.percentage >= 100 && progress.fiber.percentage >= 100 ? (
+            {macroBlocks.every((item) => item.percentage >= 100) ? (
               <span className="text-green-400 text-xs font-medium flex items-center gap-1">
                 🎯 Цели достигнуты!
               </span>

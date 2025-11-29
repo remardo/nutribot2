@@ -20,11 +20,16 @@ export default defineSchema({
    .index("by_user", ["userId"]),
    
   userSettings: defineTable({
-    userId: v.string(), // Telegram user ID
-    dailyCaloriesGoal: v.number(), // Дневная цель по калориям
-    dailyProteinGoal: v.number(), // Дневная цель по белкам (г)
-    dailyFiberGoal: v.number(), // Дневная цель по клетчатке (г)
-    isTrackingEnabled: v.boolean(), // Включен ли отслеживание прогресса
-    updatedAt: v.number(), // Время последнего обновления
+    userId: v.string(),
+    dailyCaloriesGoal: v.number(),
+    dailyProteinGoal: v.number(),
+    dailyFiberGoal: v.number(),
+    dailyFatGoal: v.number(),
+    dailyCarbGoal: v.number(),
+    goalsMode: v.string(),
+    weightKg: v.optional(v.number()),
+    heightCm: v.optional(v.number()),
+    isTrackingEnabled: v.boolean(),
+    updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 });

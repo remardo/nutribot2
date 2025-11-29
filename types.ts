@@ -54,6 +54,11 @@ export interface UserSettings {
   dailyCaloriesGoal: number;
   dailyProteinGoal: number;
   dailyFiberGoal: number;
+  dailyFatGoal: number;
+  dailyCarbGoal: number;
+  goalsMode: "auto" | "manual";
+  weightKg?: number;
+  heightCm?: number;
   isTrackingEnabled: boolean;
   updatedAt: number;
 }
@@ -65,6 +70,16 @@ export interface NutritionProgress {
     percentage: number;
   };
   protein: {
+    current: number;
+    goal: number;
+    percentage: number;
+  };
+  fat: {
+    current: number;
+    goal: number;
+    percentage: number;
+  };
+  carbs: {
     current: number;
     goal: number;
     percentage: number;

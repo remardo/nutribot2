@@ -179,36 +179,37 @@ export const getUserSettings = query({
   handler: async (ctx) => {
     const userId = getCurrentUserId(ctx);
     
-    // Если пользователь не аутентифицирован, возвращаем настройки по умолчанию
+    const defaultSettings = {
+      userId,
+      dailyCaloriesGoal: 2000,
+      dailyProteinGoal: 100,
+      dailyFiberGoal: 25,
+      dailyFatGoal: 70,
+      dailyCarbGoal: 250,
+      goalsMode: "manual",
+      weightKg: undefined,
+      heightCm: undefined,
+      isTrackingEnabled: false,
+      updatedAt: Date.now(),
+    };
+
     if (!userId) {
       console.log("User not authenticated, returning default settings");
-      return {
-        userId: null,
-        dailyCaloriesGoal: 2000, // Значения по умолчанию
-        dailyProteinGoal: 100,
-        dailyFiberGoal: 25,
-        isTrackingEnabled: false,
-        updatedAt: Date.now(),
-      };
+      return { ...defaultSettings, userId: null };
     }
 
     const settings = await ctx.db.query("userSettings")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
     
-    // Возвращаем настройки по умолчанию если их нет
     if (!settings) {
-      return {
-        userId,
-        dailyCaloriesGoal: 2000, // Значения по умолчанию
-        dailyProteinGoal: 100,
-        dailyFiberGoal: 25,
-        isTrackingEnabled: false,
-        updatedAt: Date.now(),
-      };
+      return defaultSettings;
     }
     
-    return settings;
+    return {
+      ...defaultSettings,
+      ...settings,
+    };
   },
 });
 
@@ -217,6 +218,11 @@ export const updateUserSettings = mutation({
     dailyCaloriesGoal: v.number(),
     dailyProteinGoal: v.number(),
     dailyFiberGoal: v.number(),
+    dailyFatGoal: v.number(),
+    dailyCarbGoal: v.number(),
+    goalsMode: v.string(),
+    weightKg: v.optional(v.number()),
+    heightCm: v.optional(v.number()),
     isTrackingEnabled: v.boolean(),
   },
   handler: async (ctx, args) => {

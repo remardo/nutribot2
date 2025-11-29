@@ -74,22 +74,30 @@ const App: React.FC = () => {
 
   // Calculate nutrition progress
   const nutritionProgress: NutritionProgress = useMemo(() => {
+    const defaults = {
+      calories: { current: 0, goal: 2000, percentage: 0 },
+      protein: { current: 0, goal: 100, percentage: 0 },
+      fat: { current: 0, goal: 70, percentage: 0 },
+      carbs: { current: 0, goal: 250, percentage: 0 },
+      fiber: { current: 0, goal: 25, percentage: 0 },
+    };
+
     if (!userSettings) {
-      return {
-        calories: { current: 0, goal: 2000, percentage: 0 },
-        protein: { current: 0, goal: 100, percentage: 0 },
-        fiber: { current: 0, goal: 25, percentage: 0 },
-      };
+      return defaults;
     }
 
     const currentStats = todayLog.reduce((acc, item) => ({
       calories: acc.calories + (typeof item.calories === 'number' ? item.calories : 0),
       protein: acc.protein + (typeof item.protein === 'number' ? item.protein : 0),
+      fat: acc.fat + (typeof item.fat === 'number' ? item.fat : 0),
+      carbs: acc.carbs + (typeof item.carbs === 'number' ? item.carbs : 0),
       fiber: acc.fiber + (typeof item.fiber === 'number' ? item.fiber : 0),
-    }), { calories: 0, protein: 0, fiber: 0 });
+    }), { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0 });
 
     const goal = userSettings.dailyCaloriesGoal;
     const proteinGoal = userSettings.dailyProteinGoal;
+    const fatGoal = userSettings.dailyFatGoal ?? defaults.fat.goal;
+    const carbGoal = userSettings.dailyCarbGoal ?? defaults.carbs.goal;
     const fiberGoal = userSettings.dailyFiberGoal;
 
     return {
@@ -102,6 +110,16 @@ const App: React.FC = () => {
         current: currentStats.protein,
         goal: proteinGoal,
         percentage: proteinGoal > 0 ? (currentStats.protein / proteinGoal) * 100 : 0,
+      },
+      fat: {
+        current: currentStats.fat,
+        goal: fatGoal,
+        percentage: fatGoal > 0 ? (currentStats.fat / fatGoal) * 100 : 0,
+      },
+      carbs: {
+        current: currentStats.carbs,
+        goal: carbGoal,
+        percentage: carbGoal > 0 ? (currentStats.carbs / carbGoal) * 100 : 0,
       },
       fiber: {
         current: currentStats.fiber,
