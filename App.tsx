@@ -14,11 +14,13 @@ const App: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null); // Telegram user ID
   
   // Convex Hooks
   const logs = useQuery(api.food.getLogs) || [];
   const addLogMutation = useMutation(api.food.addLog);
   const updateLogMutation = useMutation(api.food.updateLog);
+  const updateLogFullMutation = useMutation(api.food.updateLogFull);
   const deleteLogMutation = useMutation(api.food.deleteLog);
   const generateUploadUrl = useMutation(api.food.generateUploadUrl);
   const analyzeFoodAction = useAction(api.gemini.analyzeFood);
@@ -71,6 +73,22 @@ const App: React.FC = () => {
       tg.ready();
       tg.expand();
       console.log('Telegram Web App initialized');
+      
+      // Извлекаем данные пользователя из Telegram WebApp
+      const userData = tg.initDataUnsafe?.user;
+      if (userData) {
+        setUserId(userData.id?.toString() || null);
+        console.log('User authenticated:', {
+          id: userData.id,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          username: userData.username
+        });
+      } else {
+        console.warn('No user data found in Telegram WebApp');
+      }
+    } else {
+      console.warn('Telegram WebApp not available');
     }
     
     // Initial bot message
@@ -89,7 +107,8 @@ const App: React.FC = () => {
     console.log('Convex logs updated:', logs?.length || 0, 'items');
     console.log('Today log items:', todayLog?.length || 0);
     console.log('All logs:', allLogs);
-  }, [logs, todayLog, allLogs]);
+    console.log('Current userId:', userId);
+  }, [logs, todayLog, allLogs, userId]);
 
   // Handle Telegram Back Button
   useEffect(() => {
@@ -199,21 +218,72 @@ const App: React.FC = () => {
       // Auto-save to log if analysis was successful and has valid data
       if (response.data && response.data.name && response.data.calories > 0) {
         try {
-          await addLogMutation({
-            name: response.data.name,
-            calories: response.data.calories,
-            protein: response.data.protein,
-            fat: response.data.fat,
-            carbs: response.data.carbs,
-            fiber: response.data.fiber,
-            omega3to6Ratio: response.data.omega3to6Ratio,
-            ironType: response.data.ironType,
-            importantNutrients: response.data.importantNutrients,
-            timestamp: Date.now(),
-            imageId: imageStorageId as Id<"_storage"> | undefined,
-          });
-          
-          console.log('Successfully saved analysis to log:', response.data.name);
+          // Check if this is a correction of an existing entry
+          if (response.data.isCorrection) {
+            // Find the most recent entry with similar name (within last hour)
+            const oneHourAgo = Date.now() - 60 * 60 * 1000;
+            const recentEntries = allLogs.filter(item => 
+              item.timestamp > oneHourAgo && 
+              (item.name.toLowerCase().includes(response.data!.originalName?.toLowerCase() || '') ||
+               response.data!.originalName?.toLowerCase().includes(item.name.toLowerCase()))
+            );
+            
+            if (recentEntries.length > 0) {
+              // Update the most recent matching entry
+              const entryToUpdate = recentEntries.sort((a, b) => b.timestamp - a.timestamp)[0];
+              await updateLogFullMutation({
+                id: entryToUpdate.id as Id<"dailyLogs">,
+                name: response.data.name,
+                calories: response.data.calories,
+                protein: response.data.protein,
+                fat: response.data.fat,
+                carbs: response.data.carbs,
+                fiber: response.data.fiber,
+                omega3to6Ratio: response.data.omega3to6Ratio,
+                ironType: response.data.ironType,
+                importantNutrients: response.data.importantNutrients,
+                imageId: imageStorageId as Id<"_storage"> | undefined,
+              });
+              
+              console.log('Successfully updated existing entry:', response.data.name);
+            } else {
+              // If no matching entry found, create new one as fallback
+              await addLogMutation({
+                userId: userId!, // Обязательно должен быть установлен
+                name: response.data.name,
+                calories: response.data.calories,
+                protein: response.data.protein,
+                fat: response.data.fat,
+                carbs: response.data.carbs,
+                fiber: response.data.fiber,
+                omega3to6Ratio: response.data.omega3to6Ratio,
+                ironType: response.data.ironType,
+                importantNutrients: response.data.importantNutrients,
+                timestamp: Date.now(),
+                imageId: imageStorageId as Id<"_storage"> | undefined,
+              });
+              
+              console.log('No matching entry found, created new entry:', response.data.name);
+            }
+          } else {
+            // This is a new entry, create it normally
+            await addLogMutation({
+              userId: userId!, // Обязательно должен быть установлен
+              name: response.data.name,
+              calories: response.data.calories,
+              protein: response.data.protein,
+              fat: response.data.fat,
+              carbs: response.data.carbs,
+              fiber: response.data.fiber,
+              omega3to6Ratio: response.data.omega3to6Ratio,
+              ironType: response.data.ironType,
+              importantNutrients: response.data.importantNutrients,
+              timestamp: Date.now(),
+              imageId: imageStorageId as Id<"_storage"> | undefined,
+            });
+            
+            console.log('Successfully saved new analysis to log:', response.data.name);
+          }
         } catch (saveError) {
           console.error('Failed to save to log:', saveError);
           // Don't show error to user, just log it
@@ -332,6 +402,28 @@ const App: React.FC = () => {
     }
   };
 
+  // Проверка аутентификации
+  if (!userId) {
+    return (
+      <div className="flex flex-col h-full bg-gray-900 text-gray-100 font-sans items-center justify-center">
+        <div className="text-center p-8">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 max-w-md">
+            <h2 className="text-xl font-bold text-red-400 mb-2">Ошибка аутентификации</h2>
+            <p className="text-gray-300 mb-4">
+              Не удалось определить пользователя. Пожалуйста, убедитесь, что приложение запущено через Telegram бота.
+            </p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Перезагрузить
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-gray-900 text-gray-100 font-sans relative overflow-hidden">
       
@@ -359,6 +451,26 @@ const App: React.FC = () => {
             </div>
             
             <div className="p-4">
+              {/* Пользователь */}
+              <div className="mb-4 p-3 bg-gray-700/30 rounded-lg border border-gray-600">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-tr from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                    <User size={20} className="text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">
+                      {window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name 
+                        ? `${window.Telegram.WebApp.initDataUnsafe.user.first_name} ${window.Telegram.WebApp.initDataUnsafe.user.last_name || ''}`
+                        : 'Пользователь'
+                      }
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      ID: {userId || 'Не определен'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
               <nav className="space-y-1">
                 <button 
                   onClick={() => handleNavigate('chat')}

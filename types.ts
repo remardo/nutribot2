@@ -9,6 +9,8 @@ export interface NutrientData {
   omega3to6Ratio: string; // e.g., "1:4" or "Low Omega-3"
   ironType: string; // 'Гемовое' | 'Негемовое' | 'Смешанное' | 'Незначительное'
   importantNutrients: string[]; // List of other vitamins/minerals found
+  isCorrection?: boolean; // True if this is a correction of previous food
+  originalName?: string; // Original name being corrected
 }
 
 export interface ChatMessage {
@@ -22,6 +24,7 @@ export interface ChatMessage {
 
 export interface DailyLogItem extends NutrientData {
   id: string;
+  userId: string; // Telegram user ID
   timestamp: number;
   note?: string;
   imageUrl?: string | null;

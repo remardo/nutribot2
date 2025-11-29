@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 export default defineSchema({
   dailyLogs: defineTable({
+    userId: v.string(), // Telegram user ID для привязки к аккаунту
     name: v.string(),
     calories: v.number(),
     protein: v.number(),
@@ -15,5 +16,6 @@ export default defineSchema({
     timestamp: v.number(),
     note: v.optional(v.string()),
     imageId: v.optional(v.id("_storage")),
-  }).index("by_timestamp", ["timestamp"]),
+  }).index("by_user_timestamp", ["userId", "timestamp"])
+   .index("by_user", ["userId"]),
 });
