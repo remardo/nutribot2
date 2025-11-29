@@ -1,7 +1,7 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { DailyLogItem } from '../types';
-import { Calendar, Trash2, Clock, Flame, Dumbbell, Droplet, Wheat, Search, X, Filter, Download, MessageSquare, Check, Edit2 } from 'lucide-react';
+import { Calendar, Trash2, Clock, Flame, Dumbbell, Droplet, Wheat, Search, X, Filter, Download, MessageSquare, Check, Edit2, Save } from 'lucide-react';
 
 interface Props {
   logs: DailyLogItem[];
@@ -13,6 +13,34 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
   const [filterDate, setFilterDate] = useState<string>('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState<string>('');
+  const [lastAutoSaved, setLastAutoSaved] = useState<Date | null>(null);
+
+  // Ref to hold current text for the interval closure to access without dependency cycles
+  const noteTextRef = useRef(noteText);
+
+  useEffect(() => {
+    noteTextRef.current = noteText;
+  }, [noteText]);
+
+  // Auto-save Interval (30 seconds)
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    
+    if (editingId) {
+      setLastAutoSaved(null);
+      interval = setInterval(() => {
+        if (editingId && noteTextRef.current) {
+          console.log('Auto-saving note...');
+          onUpdate(editingId, { note: noteTextRef.current });
+          setLastAutoSaved(new Date());
+        }
+      }, 30000); // 30 seconds
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [editingId, onUpdate]);
 
   const filteredLogs = useMemo(() => {
     if (!filterDate) return logs;
@@ -124,17 +152,33 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
   const startEditing = (id: string, currentNote?: string) => {
     setEditingId(id);
     setNoteText(currentNote || '');
+    setLastAutoSaved(null);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setNoteText('');
+    setLastAutoSaved(null);
   };
 
   const saveNote = (id: string) => {
     onUpdate(id, { note: noteText });
     setEditingId(null);
     setNoteText('');
+    setLastAutoSaved(null);
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    // If the related target (element receiving focus) is the cancel button, 
+    // do not save, let the cancel click handler do its job.
+    if (e.relatedTarget && (e.relatedTarget as HTMLElement).dataset.action === 'cancel') {
+      return;
+    }
+    
+    // Otherwise, save on blur
+    if (editingId) {
+      saveNote(editingId);
+    }
   };
 
   return (
@@ -277,28 +321,35 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
                   {/* Note Section */}
                   <div className="mt-2 border-t border-gray-700/50 pt-2">
                     {editingId === item.id ? (
-                      <div className="animate-fade-in">
+                      <div className="animate-fade-in relative">
                         <textarea
                           value={noteText}
                           onChange={(e) => setNoteText(e.target.value)}
+                          onBlur={handleBlur}
                           placeholder="Добавьте описание или заметку..."
                           className="w-full bg-gray-900/50 border border-gray-600 rounded-lg p-2 text-sm text-gray-200 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
                           rows={2}
                           autoFocus
                         />
-                        <div className="flex justify-end gap-2 mt-2">
-                          <button 
-                            onClick={cancelEdit}
-                            className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
-                          >
-                            <X size={16} />
-                          </button>
-                          <button 
-                            onClick={() => saveNote(item.id)}
-                            className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium flex items-center gap-1 transition-colors"
-                          >
-                            <Check size={14} /> Сохранить
-                          </button>
+                        <div className="flex justify-between items-center mt-2">
+                          <span className="text-[10px] text-gray-500 italic h-4">
+                            {lastAutoSaved && `Сохранено ${lastAutoSaved.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}`}
+                          </span>
+                          <div className="flex gap-2">
+                            <button 
+                              data-action="cancel"
+                              onClick={cancelEdit}
+                              className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                            >
+                              <X size={16} />
+                            </button>
+                            <button 
+                              onClick={() => saveNote(item.id)}
+                              className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium flex items-center gap-1 transition-colors"
+                            >
+                              <Check size={14} /> Сохранить
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
