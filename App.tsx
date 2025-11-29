@@ -1,24 +1,27 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense, lazy } from 'react';
 import { Camera, Send, PieChart as ChartIcon, MessageSquare, Plus, Menu, X, User, Book, Settings } from 'lucide-react';
 import { ChatMessage, DailyLogItem, DayStats, NutritionProgress } from './types';
 import ChatMessageBubble from './components/ChatMessageBubble';
-import DailyStatsDashboard from './components/DailyStatsDashboard';
-import FoodArchive from './components/FoodArchive';
-import NutritionGoalsSettings from './components/NutritionGoalsSettings';
 import NutritionProgressBar from './components/NutritionProgressBar';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "./convex/_generated/api";
 import { Id } from "./convex/_generated/dataModel";
 import { addDays, formatWeekdayShort, isSameDay, startOfDay } from './utils/date';
+import { useImageUpload } from './hooks/useImageUpload';
+import { AppTab, useTelegramBackButton, useTelegramUser } from './hooks/useTelegramWebApp';
+
+const DailyStatsDashboard = lazy(() => import('./components/DailyStatsDashboard'));
+const FoodArchive = lazy(() => import('./components/FoodArchive'));
+const NutritionGoalsSettings = lazy(() => import('./components/NutritionGoalsSettings'));
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'chat' | 'stats' | 'archive' | 'profile'>('chat');
+  const [activeTab, setActiveTab] = useState<AppTab>('chat');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null); // Telegram user ID
   const [showNutritionSettings, setShowNutritionSettings] = useState(false); // Показывать настройки питания
+  const { userId, userName, isAuthenticated } = useTelegramUser();
   
   // Convex Hooks
   const logs = useQuery(api.food.getLogs) || [];
@@ -108,32 +111,8 @@ const App: React.FC = () => {
     };
   }, [todayLog, userSettings]);
 
-  // Initial load and Telegram Init
+  // Initial bot message
   useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    if (tg) {
-      tg.ready();
-      tg.expand();
-      console.log('Telegram Web App initialized');
-      
-      // Извлекаем данные пользователя из Telegram WebApp
-      const userData = tg.initDataUnsafe?.user;
-      if (userData) {
-        setUserId(userData.id?.toString() || null);
-        console.log('User authenticated:', {
-          id: userData.id,
-          first_name: userData.first_name,
-          last_name: userData.last_name,
-          username: userData.username
-        });
-      } else {
-        console.warn('No user data found in Telegram WebApp');
-      }
-    } else {
-      console.warn('Telegram WebApp not available');
-    }
-    
-    // Initial bot message
     setMessages([
       {
         id: 'init',
@@ -152,30 +131,15 @@ const App: React.FC = () => {
     console.log('Current userId:', userId);
   }, [logs, todayLog, allLogs, userId]);
 
-  // Handle Telegram Back Button
-  useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    if (!tg) return;
-
-    const handleBack = () => {
-      if (isMenuOpen) {
-        setIsMenuOpen(false);
-      } else if (activeTab !== 'chat') {
-        setActiveTab('chat');
-      }
-    };
-
-    if (activeTab !== 'chat' || isMenuOpen) {
-      tg.BackButton.show();
-      tg.BackButton.onClick(handleBack);
-    } else {
-      tg.BackButton.hide();
+  const handleBackNavigation = useCallback(() => {
+    if (isMenuOpen) {
+      setIsMenuOpen(false);
+    } else if (activeTab !== 'chat') {
+      setActiveTab('chat');
     }
-
-    return () => {
-      tg.BackButton.offClick(handleBack);
-    };
   }, [activeTab, isMenuOpen]);
+
+  useTelegramBackButton(activeTab, isMenuOpen, handleBackNavigation);
 
   // Scroll to bottom
   useEffect(() => {
@@ -183,6 +147,10 @@ const App: React.FC = () => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, activeTab]);
+
+  const pushMessage = useCallback((message: ChatMessage) => {
+    setMessages(prev => [...prev, message]);
+  }, []);
 
   const handleSendMessage = async (text?: string, imageFile?: File, imagePreview?: string) => {
     const content = text || inputText;
@@ -199,7 +167,7 @@ const App: React.FC = () => {
       timestamp: Date.now()
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    pushMessage(userMsg);
     setIsLoading(true);
 
     try {
@@ -255,7 +223,7 @@ const App: React.FC = () => {
         timestamp: Date.now()
       };
 
-      setMessages(prev => [...prev, botMsg]);
+      pushMessage(botMsg);
 
       // Auto-save to log if analysis is successful and has valid data (also works in demo mode)
       if (response.data && response.data.name && response.data.calories > 0) {
@@ -392,62 +360,21 @@ const App: React.FC = () => {
         });
       }
       
-      setMessages(prev => [...prev, {
+      pushMessage({
         id: crypto.randomUUID(),
         role: 'model',
         text: errorMessage,
         timestamp: Date.now()
-      }]);
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    // Валидация файла
-    if (!file.type.startsWith('image/')) {
-      setMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
-        role: 'model',
-        text: "❌ Пожалуйста, выберите изображение.",
-        timestamp: Date.now()
-      }]);
-      return;
-    }
-    
-    // Проверяем размер файла (макс 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      setMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
-        role: 'model',
-        text: "❌ Размер файла не должен превышать 10MB.",
-        timestamp: Date.now()
-      }]);
-      return;
-    }
-    
-    // Создаем локальный предпросмотр
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
-      handleSendMessage("Проанализируй это изображение", file, base64);
-    };
-    reader.onerror = () => {
-      setMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
-        role: 'model',
-        text: "❌ Ошибка при чтении файла.",
-        timestamp: Date.now()
-      }]);
-    };
-    reader.readAsDataURL(file);
-    
-    // Очищаем input для повторной загрузки того же файла
-    e.target.value = '';
-  };
+  const { handleFileUpload } = useImageUpload({
+    onSend: handleSendMessage,
+    pushMessage,
+  });
 
   const handleUpdateLog = async (id: string, updates: Partial<DailyLogItem>) => {
     // Only pass fields that allow updating. Currently 'note' is the main one.
@@ -463,7 +390,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleNavigate = (tab: 'chat' | 'stats' | 'archive' | 'profile') => {
+  const handleNavigate = (tab: AppTab) => {
     setActiveTab(tab);
     setIsMenuOpen(false);
   };
@@ -484,7 +411,6 @@ const App: React.FC = () => {
   };
 
   // Предупреждение об аутентификации (не блокирующее)
-  const isAuthenticated = !!userId;
 
   return (
     <div className="flex flex-col h-full bg-gray-900 text-gray-100 font-sans relative overflow-hidden">
@@ -521,10 +447,7 @@ const App: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-white">
-                      {window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name 
-                        ? `${window.Telegram.WebApp.initDataUnsafe.user.first_name} ${window.Telegram.WebApp.initDataUnsafe.user.last_name || ''}`
-                        : 'Пользователь'
-                      }
+                      {userName || 'Пользователь'}
                     </p>
                     <p className="text-xs text-gray-400">
                       ID: {userId || 'Не определен'}
@@ -704,7 +627,9 @@ const App: React.FC = () => {
         <div className={`absolute inset-0 bg-gray-900 transition-transform duration-300 ${activeTab === 'stats' ? 'translate-x-0' : (activeTab === 'archive' || activeTab === 'profile' ? '-translate-x-full' : 'translate-x-full')}`}>
              {activeTab === 'stats' && (
                 <>
-                    <DailyStatsDashboard log={todayLog} weeklyData={weeklyStats} />
+                    <Suspense fallback={<div className="p-4 text-gray-400">Загрузка статистики...</div>}>
+                      <DailyStatsDashboard log={todayLog} weeklyData={weeklyStats} />
+                    </Suspense>
                     <button 
                         onClick={() => setActiveTab('chat')}
                         className="absolute bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-full shadow-lg shadow-blue-900/40 transition-transform hover:scale-110 z-20"
@@ -718,11 +643,13 @@ const App: React.FC = () => {
         {/* Archive View */}
         <div className={`absolute inset-0 bg-gray-900 transition-transform duration-300 ${activeTab === 'archive' ? 'translate-x-0' : (activeTab === 'profile' ? '-translate-x-full' : 'translate-x-full')}`}>
              {activeTab === 'archive' && (
-                <FoodArchive 
-                  logs={allLogs} 
-                  onDelete={handleDeleteLog} 
-                  onUpdate={handleUpdateLog}
-                />
+                <Suspense fallback={<div className="p-4 text-gray-400">Загрузка архива...</div>}>
+                  <FoodArchive 
+                    logs={allLogs} 
+                    onDelete={handleDeleteLog} 
+                    onUpdate={handleUpdateLog}
+                  />
+                </Suspense>
              )}
         </div>
 
@@ -737,10 +664,7 @@ const App: React.FC = () => {
                         <User size={32} className="text-white" />
                       </div>
                       <h2 className="text-2xl font-bold text-white mb-2">
-                        {window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name 
-                          ? `${window.Telegram.WebApp.initDataUnsafe.user.first_name} ${window.Telegram.WebApp.initDataUnsafe.user.last_name || ''}`
-                          : 'Пользователь'
-                        }
+                        {userName || 'Пользователь'}
                       </h2>
                       <p className="text-gray-400">ID: {userId || 'Не определен'}</p>
                       {!isAuthenticated && (
@@ -766,9 +690,11 @@ const App: React.FC = () => {
 
                     {/* Настройки целей */}
                     <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-                      <NutritionGoalsSettings 
-                        onClose={handleProfileSettingsClose}
-                      />
+                      <Suspense fallback={<div className="text-gray-400">Загрузка настроек...</div>}>
+                        <NutritionGoalsSettings 
+                          onClose={handleProfileSettingsClose}
+                        />
+                      </Suspense>
                     </div>
                   </div>
                 </div>
@@ -779,9 +705,11 @@ const App: React.FC = () => {
       
       {/* Модальное окно настроек питания */}
       {showNutritionSettings && (
-        <NutritionGoalsSettings 
-          onClose={() => setShowNutritionSettings(false)} 
-        />
+        <Suspense fallback={<div className="absolute inset-0 bg-gray-900/80 text-gray-300 flex items-center justify-center">Загрузка настроек...</div>}>
+          <NutritionGoalsSettings 
+            onClose={() => setShowNutritionSettings(false)} 
+          />
+        </Suspense>
       )}
     </div>
   );
