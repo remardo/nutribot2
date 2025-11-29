@@ -48,6 +48,34 @@ export interface DayStats {
   fiber: number;
 }
 
+export interface UserSettings {
+  id?: string;
+  userId: string;
+  dailyCaloriesGoal: number;
+  dailyProteinGoal: number;
+  dailyFiberGoal: number;
+  isTrackingEnabled: boolean;
+  updatedAt: number;
+}
+
+export interface NutritionProgress {
+  calories: {
+    current: number;
+    goal: number;
+    percentage: number;
+  };
+  protein: {
+    current: number;
+    goal: number;
+    percentage: number;
+  };
+  fiber: {
+    current: number;
+    goal: number;
+    percentage: number;
+  };
+}
+
 // Telegram Web App Types
 declare global {
   interface Window {

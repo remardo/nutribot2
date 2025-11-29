@@ -159,3 +159,66 @@ export const deleteImage = mutation({
     }
   },
 });
+
+export const getUserSettings = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const settings = await ctx.db.query("userSettings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    
+    // Возвращаем настройки по умолчанию если их нет
+    if (!settings) {
+      return {
+        userId,
+        dailyCaloriesGoal: 2000, // Значения по умолчанию
+        dailyProteinGoal: 100,
+        dailyFiberGoal: 25,
+        isTrackingEnabled: false,
+        updatedAt: Date.now(),
+      };
+    }
+    
+    return settings;
+  },
+});
+
+export const updateUserSettings = mutation({
+  args: {
+    dailyCaloriesGoal: v.number(),
+    dailyProteinGoal: v.number(),
+    dailyFiberGoal: v.number(),
+    isTrackingEnabled: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const userId = getCurrentUserId(ctx);
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    // Ищем существующие настройки
+    const existingSettings = await ctx.db.query("userSettings")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+
+    const settingsData = {
+      userId,
+      ...args,
+      updatedAt: Date.now(),
+    };
+
+    if (existingSettings) {
+      // Обновляем существующие настройки
+      await ctx.db.patch(existingSettings._id, settingsData);
+      return existingSettings._id;
+    } else {
+      // Создаем новые настройки
+      return await ctx.db.insert("userSettings", settingsData);
+    }
+  },
+});

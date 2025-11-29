@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Camera, Send, PieChart as ChartIcon, MessageSquare, Plus, Menu, X, User, Book } from 'lucide-react';
-import { ChatMessage, DailyLogItem, DayStats } from './types';
+import { Camera, Send, PieChart as ChartIcon, MessageSquare, Plus, Menu, X, User, Book, Settings } from 'lucide-react';
+import { ChatMessage, DailyLogItem, DayStats, NutritionProgress } from './types';
 import ChatMessageBubble from './components/ChatMessageBubble';
 import DailyStatsDashboard from './components/DailyStatsDashboard';
 import FoodArchive from './components/FoodArchive';
+import NutritionGoalsSettings from './components/NutritionGoalsSettings';
+import NutritionProgressBar from './components/NutritionProgressBar';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "./convex/_generated/api";
 import { Id } from "./convex/_generated/dataModel";
@@ -15,9 +17,11 @@ const App: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null); // Telegram user ID
+  const [showNutritionSettings, setShowNutritionSettings] = useState(false); // Показывать настройки питания
   
   // Convex Hooks
   const logs = useQuery(api.food.getLogs) || [];
+  const userSettings = useQuery(api.food.getUserSettings);
   const addLogMutation = useMutation(api.food.addLog);
   const updateLogMutation = useMutation(api.food.updateLog);
   const updateLogFullMutation = useMutation(api.food.updateLogFull);
@@ -66,6 +70,45 @@ const App: React.FC = () => {
     const today = new Date().toDateString();
     return allLogs.filter(item => new Date(item.timestamp).toDateString() === today);
   }, [allLogs]);
+
+  // Calculate nutrition progress
+  const nutritionProgress: NutritionProgress = useMemo(() => {
+    if (!userSettings) {
+      return {
+        calories: { current: 0, goal: 2000, percentage: 0 },
+        protein: { current: 0, goal: 100, percentage: 0 },
+        fiber: { current: 0, goal: 25, percentage: 0 },
+      };
+    }
+
+    const currentStats = todayLog.reduce((acc, item) => ({
+      calories: acc.calories + (typeof item.calories === 'number' ? item.calories : 0),
+      protein: acc.protein + (typeof item.protein === 'number' ? item.protein : 0),
+      fiber: acc.fiber + (typeof item.fiber === 'number' ? item.fiber : 0),
+    }), { calories: 0, protein: 0, fiber: 0 });
+
+    const goal = userSettings.dailyCaloriesGoal;
+    const proteinGoal = userSettings.dailyProteinGoal;
+    const fiberGoal = userSettings.dailyFiberGoal;
+
+    return {
+      calories: {
+        current: currentStats.calories,
+        goal: goal,
+        percentage: goal > 0 ? (currentStats.calories / goal) * 100 : 0,
+      },
+      protein: {
+        current: currentStats.protein,
+        goal: proteinGoal,
+        percentage: proteinGoal > 0 ? (currentStats.protein / proteinGoal) * 100 : 0,
+      },
+      fiber: {
+        current: currentStats.fiber,
+        goal: fiberGoal,
+        percentage: fiberGoal > 0 ? (currentStats.fiber / fiberGoal) * 100 : 0,
+      },
+    };
+  }, [todayLog, userSettings]);
 
   // Initial load and Telegram Init
   useEffect(() => {
@@ -527,6 +570,18 @@ const App: React.FC = () => {
                   <Book size={20} />
                   Архив блюд
                 </button>
+                
+                {/* Кнопка настроек питания */}
+                <button 
+                  onClick={() => {
+                    setShowNutritionSettings(true);
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-gray-300 hover:bg-gray-700/50"
+                >
+                  <Settings size={20} />
+                  Настройки питания
+                </button>
               </nav>
             </div>
             
@@ -574,6 +629,12 @@ const App: React.FC = () => {
         {/* Chat View */}
         <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ${activeTab === 'chat' ? 'translate-x-0' : '-translate-x-full'}`}>
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                {/* Прогресс-бар питания */}
+                <NutritionProgressBar 
+                  progress={nutritionProgress} 
+                  isEnabled={userSettings?.isTrackingEnabled || false} 
+                />
+                
                 {messages.map((msg) => (
                     <ChatMessageBubble 
                         key={msg.id} 
@@ -674,6 +735,13 @@ const App: React.FC = () => {
         </div>
 
       </main>
+      
+      {/* Модальное окно настроек питания */}
+      {showNutritionSettings && (
+        <NutritionGoalsSettings 
+          onClose={() => setShowNutritionSettings(false)} 
+        />
+      )}
     </div>
   );
 };
