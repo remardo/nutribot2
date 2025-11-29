@@ -3,7 +3,6 @@
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
-import { GoogleGenAI } from "@google/genai";
 
 const SYSTEM_INSTRUCTION = `
 Ты — NutriBot, ИИ-эксперт по нутрициологии. Цель: анализировать еду по фото или тексту и выдавать точные нутриенты.
@@ -19,8 +18,8 @@ const SYSTEM_INSTRUCTION = `
    - Соотношение Омега-3 к Омега-6 (например «1:5», «Много Омега-3» или «Н/Д»)
    - Тип железа (Гемовое, Негемовое, Смешанное или Незначительное)
    - Важные нутриенты (например, Витамин C, Магний)
-3) Отвечай дружелюбно и коротко на русском.
-4) ВАЖНО: если определил еду — добавь в конце ответа JSON-блок в тройных бэктиках строго по шаблону:
+3) Отвечай дружелюбно и кратко на русском.
+4) ВАЖНО: если определил еду — добавь JSON в конце ответа, в тройных бэктиках, строго по шаблону:
 \`\`\`json
 {
   "name": "Название блюда",
@@ -36,6 +35,23 @@ const SYSTEM_INSTRUCTION = `
 \`\`\`
 Если запрос не про еду — отвечай без JSON.
 `;
+
+const MODEL = "gemini-2.0-flash";
+const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+
+type GeminiResponse = {
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> };
+  }>;
+};
+
+const extractText = (resp: GeminiResponse) => {
+  const parts = resp.candidates?.[0]?.content?.parts || [];
+  return parts
+    .map((p) => p.text || "")
+    .join("")
+    .trim();
+};
 
 export const analyzeFood = action({
   args: {
@@ -56,9 +72,6 @@ export const analyzeFood = action({
       throw new Error("API Key not configured in Convex Dashboard");
     }
 
-    const ai = new GoogleGenAI({ apiKey });
-
-    // Формируем текстовый контекст
     let promptText = "";
     if (args.currentStats) {
       promptText += `${args.currentStats}\n`;
@@ -68,9 +81,10 @@ export const analyzeFood = action({
       .join("\n");
     promptText += `${historyContext}\nПользователь: ${args.message}`;
 
-    const parts: any[] = [{ text: `${SYSTEM_INSTRUCTION}\n\n${promptText}` }];
+    const parts: Array<Record<string, unknown>> = [
+      { text: `${SYSTEM_INSTRUCTION}\n\n${promptText}` },
+    ];
 
-    // Если есть изображение — добавляем как inlineData
     if (args.imageStorageId) {
       const imageUrl = await ctx.storage.getUrl(args.imageStorageId);
       if (imageUrl) {
@@ -79,8 +93,8 @@ export const analyzeFood = action({
         const base64Data = Buffer.from(arrayBuffer).toString("base64");
 
         parts.push({
-          inlineData: {
-            mimeType: "image/jpeg",
+          inline_data: {
+            mime_type: "image/jpeg",
             data: base64Data,
           },
         });
@@ -88,19 +102,25 @@ export const analyzeFood = action({
     }
 
     try {
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [
-          {
-            role: "user",
-            parts,
-          },
-        ],
+      const response = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts }],
+          safetySettings: [],
+        }),
       });
 
-      const text = response.text || "Извини, я не смог это обработать.";
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`Gemini API error: ${response.status} ${body}`);
+      }
 
-      // Вытаскиваем JSON из ответа, если есть
+      const json = (await response.json()) as GeminiResponse;
+      const text = extractText(json) || "Извини, я не смог это обработать.";
+
       const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
       let extractedData = null;
 
