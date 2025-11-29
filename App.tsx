@@ -416,7 +416,7 @@ const App: React.FC = () => {
   const getHeaderTitle = () => {
     switch(activeTab) {
       case 'chat': return 'Чат';
-      case 'stats': return 'Личный кабинет';
+      case 'stats': return 'Статистика';
       case 'archive': return 'Архив блюд';
       case 'profile': return 'Профиль';
       default: return 'NutriBot';
