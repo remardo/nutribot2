@@ -486,8 +486,8 @@ const App: React.FC = () => {
                   onClick={() => handleNavigate('stats')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'stats' ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20' : 'text-gray-300 hover:bg-gray-700/50'}`}
                 >
-                  <User size={20} />
-                  Личный кабинет
+                  <ChartIcon size={20} />
+                  Статистика
                 </button>
                 <button 
                   onClick={() => handleNavigate('archive')}
