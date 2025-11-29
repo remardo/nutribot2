@@ -15,8 +15,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1z1UfXIKD4JgwVaZ0rmmZKU
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Set the Convex deployment URL in `.env.local` as `VITE_CONVEX_URL=https://<your-convex-deployment>.convex.cloud` (fallback hardcoded URL kept for demo)
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key (Gemini вызывается только с Convex-сервера, ключ не уходит на фронт)
+3. Set the Convex deployment URL in `.env.local` as `VITE_CONVEX_URL=https://<your-convex-deployment>.convex.cloud`
 4. Generate Convex client types (requires Convex CLI): `npx convex dev` (keeps `_generated` in sync)
 5. Run the app:
    `npm run dev`
