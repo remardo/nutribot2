@@ -51,7 +51,10 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-const convexUrl = import.meta.env.VITE_CONVEX_URL || "https://dependable-frog-97.convex.cloud";
+const convexUrl = import.meta.env.VITE_CONVEX_URL;
+if (!convexUrl) {
+  throw new Error("VITE_CONVEX_URL is not set. Configure it in environment variables.");
+}
 const convex = new ConvexReactClient(convexUrl);
 
 const rootElement = document.getElementById('root');
