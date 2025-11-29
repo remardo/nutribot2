@@ -145,3 +145,17 @@ export const generateUploadUrl = mutation({
     return await ctx.storage.generateUploadUrl();
   },
 });
+
+export const deleteImage = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    try {
+      await ctx.storage.delete(args.storageId);
+      console.log('Image successfully deleted from storage:', args.storageId);
+      return true;
+    } catch (error) {
+      console.error('Failed to delete image from storage:', error);
+      return false;
+    }
+  },
+});

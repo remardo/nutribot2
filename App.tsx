@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const updateLogMutation = useMutation(api.food.updateLog);
   const updateLogFullMutation = useMutation(api.food.updateLogFull);
   const deleteLogMutation = useMutation(api.food.deleteLog);
+  const deleteImageMutation = useMutation(api.food.deleteImage);
   const generateUploadUrl = useMutation(api.food.generateUploadUrl);
   const analyzeFoodAction = useAction(api.gemini.analyzeFood);
 
@@ -246,6 +247,17 @@ const App: React.FC = () => {
               });
               
               console.log('Successfully updated existing entry:', response.data.name);
+            
+            // Удаляем изображение из хранилища после успешного обновления
+            if (imageStorageId) {
+              try {
+                await deleteImageMutation({ storageId: imageStorageId });
+                console.log('Image deleted from storage after successful update');
+              } catch (deleteError) {
+                console.error('Failed to delete image after update:', deleteError);
+                // Не прерываем процесс при ошибке удаления изображения
+              }
+            }
             } else {
               // If no matching entry found, create new one as fallback
               await addLogMutation({
@@ -264,6 +276,17 @@ const App: React.FC = () => {
               });
               
               console.log('No matching entry found, created new entry:', response.data.name);
+              
+              // Удаляем изображение из хранилища после успешного создания записи
+              if (imageStorageId) {
+                try {
+                  await deleteImageMutation({ storageId: imageStorageId });
+                  console.log('Image deleted from storage after successful creation');
+                } catch (deleteError) {
+                  console.error('Failed to delete image after creation:', deleteError);
+                  // Не прерываем процесс при ошибке удаления изображения
+                }
+              }
             }
           } else {
             // This is a new entry, create it normally
@@ -283,6 +306,17 @@ const App: React.FC = () => {
             });
             
             console.log('Successfully saved new analysis to log:', response.data.name);
+            
+            // Удаляем изображение из хранилища после успешного создания записи
+            if (imageStorageId) {
+              try {
+                await deleteImageMutation({ storageId: imageStorageId });
+                console.log('Image deleted from storage after successful creation');
+              } catch (deleteError) {
+                console.error('Failed to delete image after creation:', deleteError);
+                // Не прерываем процесс при ошибке удаления изображения
+              }
+            }
           }
         } catch (saveError) {
           console.error('Failed to save to log:', saveError);
