@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Camera, Send, PieChart as ChartIcon, MessageSquare, Plus, Menu, X, User, Book } from 'lucide-react';
-import { ChatMessage, DailyLogItem, NutrientData, DayStats } from './types';
+import { ChatMessage, DailyLogItem, DayStats } from './types';
 import ChatMessageBubble from './components/ChatMessageBubble';
 import DailyStatsDashboard from './components/DailyStatsDashboard';
 import FoodArchive from './components/FoodArchive';
