@@ -57,16 +57,36 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
     const groups: Record<string, DailyLogItem[]> = {};
     const sorted = [...filteredLogs].sort((a, b) => b.timestamp - a.timestamp);
 
+    // Prepare comparison dates (normalized to midnight)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
     sorted.forEach(item => {
-      const date = new Date(item.timestamp).toLocaleDateString('ru-RU', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-      });
-      if (!groups[date]) {
-        groups[date] = [];
+      const itemDate = new Date(item.timestamp);
+      const itemDateNormalized = new Date(itemDate);
+      itemDateNormalized.setHours(0, 0, 0, 0);
+
+      let groupTitle = '';
+
+      if (itemDateNormalized.getTime() === today.getTime()) {
+        groupTitle = 'Сегодня';
+      } else if (itemDateNormalized.getTime() === yesterday.getTime()) {
+        groupTitle = 'Вчера';
+      } else {
+        groupTitle = itemDate.toLocaleDateString('ru-RU', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        });
       }
-      groups[date].push(item);
+
+      if (!groups[groupTitle]) {
+        groups[groupTitle] = [];
+      }
+      groups[groupTitle].push(item);
     });
     
     return groups;
