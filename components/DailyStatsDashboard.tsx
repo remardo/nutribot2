@@ -6,11 +6,12 @@ import { Activity, Flame, Wheat, Droplet, Dumbbell, Target, BarChart2 } from 'lu
 interface Props {
   log: DailyLogItem[];
   weeklyData?: DayStats[];
+  dailyGoal?: number; // Калорийная цель дня
 }
 
 const COLORS = ['#3b82f6', '#eab308', '#f97316']; // Protein (Blue), Fat (Yellow), Carbs (Orange)
 
-const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [] }) => {
+const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [], dailyGoal = 2200 }) => {
   const [chartMode, setChartMode] = useState<'all' | 'calories' | 'macros' | 'fiber'>('all');
   
   const stats: DailyStats = useMemo(() => {
@@ -46,6 +47,7 @@ const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [] }) => {
          <div>
             <h2 className="text-xl font-bold text-white">Личный кабинет</h2>
             <div className="flex items-center gap-2 text-sm text-gray-400">
+                <span>Цель: {dailyGoal} ккал</span>
                <Target size={14} className="text-green-400" />
                <span>Цель: 2200 ккал</span>
             </div>

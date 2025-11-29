@@ -148,13 +148,13 @@ const App: React.FC = () => {
         imageStorageId = storageId;
       }
 
-      // 2. Prepare context stats
+      // 2. Prepare context stats with validation
       const currentStats = todayLog.reduce((acc, item) => ({
-        totalCalories: acc.totalCalories + item.calories,
-        totalProtein: acc.totalProtein + item.protein,
-        totalFat: acc.totalFat + item.fat,
-        totalCarbs: acc.totalCarbs + item.carbs,
-        totalFiber: acc.totalFiber + item.fiber
+        totalCalories: acc.totalCalories + (typeof item.calories === 'number' ? item.calories : 0),
+        totalProtein: acc.totalProtein + (typeof item.protein === 'number' ? item.protein : 0),
+        totalFat: acc.totalFat + (typeof item.fat === 'number' ? item.fat : 0),
+        totalCarbs: acc.totalCarbs + (typeof item.carbs === 'number' ? item.carbs : 0),
+        totalFiber: acc.totalFiber + (typeof item.fiber === 'number' ? item.fiber : 0)
       }), { totalCalories: 0, totalProtein: 0, totalFat: 0, totalCarbs: 0, totalFiber: 0 });
 
       const statsString = `[Текущие итоги дня: ${Math.round(currentStats.totalCalories)}ккал, Б:${currentStats.totalProtein.toFixed(1)}г, Ж:${currentStats.totalFat.toFixed(1)}г, У:${currentStats.totalCarbs.toFixed(1)}г]`;
@@ -178,11 +178,25 @@ const App: React.FC = () => {
       setMessages(prev => [...prev, botMsg]);
 
     } catch (error) {
-      console.error(error);
+      console.error("Food analysis error:", error);
+      
+      let errorMessage = "Произошла ошибка при обращении к серверу.";
+      
+      // Более детальная обработка ошибок
+      if (error instanceof Error) {
+        if (error.message.includes('API Key')) {
+          errorMessage = "Ошибка конфигурации API ключа. Обратитесь к администратору.";
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = "Проблема с сетевым подключением. Проверьте интернет.";
+        } else if (error.message.includes('timeout')) {
+          errorMessage = "Запрос занял слишком много времени. Попробуйте позже.";
+        }
+      }
+      
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
         role: 'model',
-        text: "Произошла ошибка при обращении к серверу. Попробуйте позже.",
+        text: errorMessage,
         timestamp: Date.now()
       }]);
     } finally {
@@ -192,16 +206,34 @@ const App: React.FC = () => {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Create local preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        // Send file object for upload, base64 for local preview
-        handleSendMessage("Проанализируй это изображение", file, base64);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    
+    // Проверяем тип файла
+    if (!file.type.startsWith('image/')) {
+      alert('Пожалуйста, выберите изображение');
+      return;
     }
+    
+    // Проверяем размер файла (макс 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Размер файла не должен превышать 10MB');
+      return;
+    }
+    
+    // Создаем локальный предпросмотр
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      // Отправляем файл для загрузки, base64 для локального предпросмотра
+      handleSendMessage("Проанализируй это изображение", file, base64);
+    };
+    reader.onerror = () => {
+      alert('Ошибка при чтении файла');
+    };
+    reader.readAsDataURL(file);
+    
+    // Очищаем input для повторной загрузки того же файла
+    e.target.value = '';
   };
 
   const handleAddToLog = async (data: NutrientData & { imageStorageId?: string }) => {

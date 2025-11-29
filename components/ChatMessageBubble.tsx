@@ -4,7 +4,7 @@ import { ChefHat, Database, Flame, Dumbbell, Droplet, Wheat, Sprout, Scale, Magn
 
 interface Props {
   message: ChatMessage;
-  onAddLog?: (data: NutrientData) => void;
+  onAddLog?: (data: NutrientData & { imageStorageId?: string }) => void;
   isAdded?: boolean;
 }
 
