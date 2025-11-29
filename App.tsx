@@ -11,7 +11,7 @@ import { api } from "./convex/_generated/api";
 import { Id } from "./convex/_generated/dataModel";
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'chat' | 'stats' | 'archive'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'stats' | 'archive' | 'profile'>('chat');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -465,7 +465,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleNavigate = (tab: 'chat' | 'stats' | 'archive') => {
+  const handleNavigate = (tab: 'chat' | 'stats' | 'archive' | 'profile') => {
     setActiveTab(tab);
     setIsMenuOpen(false);
   };
@@ -475,8 +475,14 @@ const App: React.FC = () => {
       case 'chat': return 'Чат';
       case 'stats': return 'Личный кабинет';
       case 'archive': return 'Архив блюд';
+      case 'profile': return 'Профиль';
       default: return 'NutriBot';
     }
+  };
+
+  const handleProfileSettingsClose = () => {
+    // В профиле просто обновляем данные, не закрываем экран
+    console.log('Настройки профиля обновлены');
   };
 
   // Проверка аутентификации
@@ -569,6 +575,13 @@ const App: React.FC = () => {
                 >
                   <Book size={20} />
                   Архив блюд
+                </button>
+                <button 
+                  onClick={() => handleNavigate('profile')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'profile' ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20' : 'text-gray-300 hover:bg-gray-700/50'}`}
+                >
+                  <User size={20} />
+                  Профиль
                 </button>
                 
                 {/* Кнопка настроек питания */}
@@ -709,7 +722,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Stats View */}
-        <div className={`absolute inset-0 bg-gray-900 transition-transform duration-300 ${activeTab === 'stats' ? 'translate-x-0' : (activeTab === 'archive' ? '-translate-x-full' : 'translate-x-full')}`}>
+        <div className={`absolute inset-0 bg-gray-900 transition-transform duration-300 ${activeTab === 'stats' ? 'translate-x-0' : (activeTab === 'archive' || activeTab === 'profile' ? '-translate-x-full' : 'translate-x-full')}`}>
              {activeTab === 'stats' && (
                 <>
                     <DailyStatsDashboard log={todayLog} weeklyData={weeklyStats} />
@@ -724,13 +737,55 @@ const App: React.FC = () => {
         </div>
 
         {/* Archive View */}
-        <div className={`absolute inset-0 bg-gray-900 transition-transform duration-300 ${activeTab === 'archive' ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className={`absolute inset-0 bg-gray-900 transition-transform duration-300 ${activeTab === 'archive' ? 'translate-x-0' : (activeTab === 'profile' ? '-translate-x-full' : 'translate-x-full')}`}>
              {activeTab === 'archive' && (
                 <FoodArchive 
                   logs={allLogs} 
                   onDelete={handleDeleteLog} 
                   onUpdate={handleUpdateLog}
                 />
+             )}
+        </div>
+
+        {/* Profile View */}
+        <div className={`absolute inset-0 bg-gray-900 transition-transform duration-300 ${activeTab === 'profile' ? 'translate-x-0' : 'translate-x-full'}`}>
+             {activeTab === 'profile' && (
+                <div className="h-full overflow-y-auto p-4">
+                  <div className="max-w-2xl mx-auto space-y-6">
+                    {/* Заголовок профиля */}
+                    <div className="text-center mb-8">
+                      <div className="w-20 h-20 bg-gradient-to-tr from-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <User size={32} className="text-white" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-white mb-2">
+                        {window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name 
+                          ? `${window.Telegram.WebApp.initDataUnsafe.user.first_name} ${window.Telegram.WebApp.initDataUnsafe.user.last_name || ''}`
+                          : 'Пользователь'
+                        }
+                      </h2>
+                      <p className="text-gray-400">ID: {userId || 'Не определен'}</p>
+                    </div>
+
+                    {/* Информация о прогрессе */}
+                    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                      <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <ChartIcon size={20} className="text-blue-400" />
+                        Прогресс на сегодня
+                      </h3>
+                      <NutritionProgressBar 
+                        progress={nutritionProgress} 
+                        isEnabled={userSettings?.isTrackingEnabled || false} 
+                      />
+                    </div>
+
+                    {/* Настройки целей */}
+                    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                      <NutritionGoalsSettings 
+                        onClose={handleProfileSettingsClose}
+                      />
+                    </div>
+                  </div>
+                </div>
              )}
         </div>
 
