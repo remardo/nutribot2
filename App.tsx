@@ -9,6 +9,7 @@ import NutritionProgressBar from './components/NutritionProgressBar';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "./convex/_generated/api";
 import { Id } from "./convex/_generated/dataModel";
+import { addDays, formatWeekdayShort, isSameDay, startOfDay } from './utils/date';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'chat' | 'stats' | 'archive' | 'profile'>('chat');
@@ -41,14 +42,12 @@ const App: React.FC = () => {
 
   // Calculate Weekly Stats on Client side from allLogs
   const weeklyStats: DayStats[] = useMemo(() => {
-    const stats: DayStats[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateString = d.toDateString(); 
-      
-      const dayLogs = allLogs.filter(item => new Date(item.timestamp).toDateString() === dateString);
-      
+    const today = startOfDay(new Date());
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = addDays(today, index - 6);
+      const dayLogs = allLogs.filter(item => isSameDay(item.timestamp, date));
+
       const dayStats = dayLogs.reduce((acc, item) => ({
         calories: acc.calories + item.calories,
         protein: acc.protein + item.protein,
@@ -56,19 +55,18 @@ const App: React.FC = () => {
         carbs: acc.carbs + item.carbs,
         fiber: acc.fiber + item.fiber
       }), { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0 });
-        
-      stats.push({
-        date: d.toLocaleDateString('ru-RU', { weekday: 'short' }),
+
+      return {
+        date: formatWeekdayShort(date),
         ...dayStats
-      });
-    }
-    return stats;
+      };
+    });
   }, [allLogs]);
 
   // Derived state for today's log
   const todayLog = useMemo(() => {
-    const today = new Date().toDateString();
-    return allLogs.filter(item => new Date(item.timestamp).toDateString() === today);
+    const today = startOfDay(new Date());
+    return allLogs.filter(item => isSameDay(item.timestamp, today));
   }, [allLogs]);
 
   // Calculate nutrition progress
@@ -259,8 +257,8 @@ const App: React.FC = () => {
 
       setMessages(prev => [...prev, botMsg]);
 
-      // Auto-save to log if analysis was successful and has valid data
-      if (response.data && response.data.name && response.data.calories > 0) {
+      // Auto-save to log if analysis was successful and has valid data (only if authenticated)
+      if (response.data && response.data.name && response.data.calories > 0 && isAuthenticated) {
         try {
           // Check if this is a correction of an existing entry
           if (response.data.isCorrection) {
@@ -485,27 +483,8 @@ const App: React.FC = () => {
     console.log('Настройки профиля обновлены');
   };
 
-  // Проверка аутентификации
-  if (!userId) {
-    return (
-      <div className="flex flex-col h-full bg-gray-900 text-gray-100 font-sans items-center justify-center">
-        <div className="text-center p-8">
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 max-w-md">
-            <h2 className="text-xl font-bold text-red-400 mb-2">Ошибка аутентификации</h2>
-            <p className="text-gray-300 mb-4">
-              Не удалось определить пользователя. Пожалуйста, убедитесь, что приложение запущено через Telegram бота.
-            </p>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Перезагрузить
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Предупреждение об аутентификации (не блокирующее)
+  const isAuthenticated = !!userId;
 
   return (
     <div className="flex flex-col h-full bg-gray-900 text-gray-100 font-sans relative overflow-hidden">
@@ -764,6 +743,13 @@ const App: React.FC = () => {
                         }
                       </h2>
                       <p className="text-gray-400">ID: {userId || 'Не определен'}</p>
+                      {!isAuthenticated && (
+                        <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                          <p className="text-yellow-400 text-sm">
+                            ⚠️ Аутентификация через Telegram недоступна. Данные не будут сохраняться.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Информация о прогрессе */}

@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { DailyLogItem } from '../types';
 import { Calendar, Trash2, Clock, Flame, Dumbbell, Droplet, Wheat, Search, X, Filter, Download, MessageSquare, Check, Edit2, Image as ImageIcon } from 'lucide-react';
+import { formatDateInputValue, getRelativeDayLabel } from '../utils/date';
 
 interface Props {
   logs: DailyLogItem[];
@@ -43,45 +44,16 @@ const FoodArchive: React.FC<Props> = ({ logs, onDelete, onUpdate }) => {
 
   const filteredLogs = useMemo(() => {
     if (!filterDate) return logs;
-    return logs.filter(item => {
-      const d = new Date(item.timestamp);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      return dateStr === filterDate;
-    });
+    return logs.filter(item => formatDateInputValue(item.timestamp) === filterDate);
   }, [logs, filterDate]);
 
   const groupedLogs = useMemo(() => {
     const groups: Record<string, DailyLogItem[]> = {};
     const sorted = [...filteredLogs].sort((a, b) => b.timestamp - a.timestamp);
 
-    // Prepare comparison dates (normalized to midnight)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
     sorted.forEach(item => {
       const itemDate = new Date(item.timestamp);
-      const itemDateNormalized = new Date(itemDate);
-      itemDateNormalized.setHours(0, 0, 0, 0);
-
-      let groupTitle = '';
-
-      if (itemDateNormalized.getTime() === today.getTime()) {
-        groupTitle = 'Сегодня';
-      } else if (itemDateNormalized.getTime() === yesterday.getTime()) {
-        groupTitle = 'Вчера';
-      } else {
-        groupTitle = itemDate.toLocaleDateString('ru-RU', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric'
-        });
-      }
+      const groupTitle = getRelativeDayLabel(itemDate);
 
       if (!groups[groupTitle]) {
         groups[groupTitle] = [];

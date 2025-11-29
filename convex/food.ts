@@ -26,8 +26,11 @@ export const getLogs = query({
   handler: async (ctx) => {
     // Получаем ID пользователя из Telegram WebApp
     const userId = getCurrentUserId(ctx);
+    
+    // Если пользователь не аутентифицирован, возвращаем пустой массив
     if (!userId) {
-      throw new Error("User not authenticated");
+      console.log("User not authenticated, returning empty logs");
+      return [];
     }
 
     // Получаем логи текущего пользователя
@@ -172,8 +175,18 @@ export const getUserSettings = query({
   args: {},
   handler: async (ctx) => {
     const userId = getCurrentUserId(ctx);
+    
+    // Если пользователь не аутентифицирован, возвращаем настройки по умолчанию
     if (!userId) {
-      throw new Error("User not authenticated");
+      console.log("User not authenticated, returning default settings");
+      return {
+        userId: null,
+        dailyCaloriesGoal: 2000, // Значения по умолчанию
+        dailyProteinGoal: 100,
+        dailyFiberGoal: 25,
+        isTrackingEnabled: false,
+        updatedAt: Date.now(),
+      };
     }
 
     const settings = await ctx.db.query("userSettings")
