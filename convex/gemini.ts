@@ -1,4 +1,5 @@
 "use node";
+/// <reference types="node" />
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
@@ -95,7 +96,6 @@ export const analyzeFood = action({
             parts,
           },
         ],
-        generationConfig: { temperature: 0.7 },
       });
 
       const text = response.text || "Извини, я не смог это обработать.";

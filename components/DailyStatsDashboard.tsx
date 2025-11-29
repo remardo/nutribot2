@@ -102,7 +102,7 @@ const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [] }) => {
                         dataKey="value"
                         stroke="none"
                         >
-                        {macroData.map((entry, index) => (
+                        {macroData.map((_, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                         </Pie>

@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { DailyLogItem } from '../types';
-import { Calendar, Trash2, Clock, Flame, Dumbbell, Droplet, Wheat, Search, X, Filter, Download, MessageSquare, Check, Edit2, Save, Image as ImageIcon } from 'lucide-react';
+import { Calendar, Trash2, Clock, Flame, Dumbbell, Droplet, Wheat, Search, X, Filter, Download, MessageSquare, Check, Edit2, Image as ImageIcon } from 'lucide-react';
 
 interface Props {
   logs: DailyLogItem[];

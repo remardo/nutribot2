@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChatMessage, NutrientData } from '../types';
-import { ChefHat, Database, AlertCircle, Flame, Dumbbell, Droplet, Wheat, Sprout, Scale, Magnet } from 'lucide-react';
+import { ChefHat, Database, Flame, Dumbbell, Droplet, Wheat, Sprout, Scale, Magnet } from 'lucide-react';
 
 interface Props {
   message: ChatMessage;
