@@ -75,7 +75,20 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
   const handleInputChange = (field: string, value: number | boolean | GoalsMode | undefined) => {
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: value,
+    }));
+  };
+
+  const applyAutoGoals = (weight?: number, height?: number) => {
+    const w = weight ?? formData.weightKg ?? 70;
+    const h = height ?? formData.heightCm ?? 170;
+    const goals = computeAutoGoals(w, h);
+    setFormData(prev => ({
+      ...prev,
+      ...goals,
+      weightKg: w,
+      heightCm: h,
+      goalsMode: "auto",
     }));
   };
 
@@ -154,7 +167,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
                 Ручной
               </button>
               <button
-                onClick={() => handleInputChange('goalsMode', 'auto')}
+                onClick={() => applyAutoGoals()}
                 className={`px-3 py-1 rounded-lg text-sm border ${formData.goalsMode === 'auto' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300'}`}
               >
                 Авто
@@ -169,8 +182,16 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
             </label>
             <input
               type="number"
+              inputMode="decimal"
+              pattern="[0-9]*"
               value={formData.weightKg ?? ''}
-              onChange={(e) => handleInputChange('weightKg', e.target.value ? parseFloat(e.target.value) : undefined)}
+              onChange={(e) => {
+                const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                handleInputChange('weightKg', value);
+                if (formData.goalsMode === "auto") {
+                  applyAutoGoals(value, formData.heightCm);
+                }
+              }}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="70"
               min="30"
@@ -186,8 +207,16 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
             </label>
             <input
               type="number"
+              inputMode="decimal"
+              pattern="[0-9]*"
               value={formData.heightCm ?? ''}
-              onChange={(e) => handleInputChange('heightCm', e.target.value ? parseFloat(e.target.value) : undefined)}
+              onChange={(e) => {
+                const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                handleInputChange('heightCm', value);
+                if (formData.goalsMode === "auto") {
+                  applyAutoGoals(formData.weightKg, value);
+                }
+              }}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="175"
               min="120"
@@ -212,6 +241,8 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               </label>
               <input
                 type="number"
+                inputMode="decimal"
+                pattern="[0-9]*"
                 value={(formData as any)[item.key]}
                 disabled={formData.goalsMode === "auto"}
                 onChange={(e) => handleInputChange(item.key, parseFloat(e.target.value) || 0)}
