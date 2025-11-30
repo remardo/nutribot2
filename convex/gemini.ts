@@ -23,8 +23,7 @@ Vsegda vozvrashchay (chisla dazhe dlya minimal'nyh znacheniy; esli nutritientov 
 
 Opredeli, eto korrektsiya ili net (slova "ispravi", "ne to", "zameni"). Esli korrektsiya — isCorrection: true i originalName predydushchego blyuda, inache isCorrection: false.
 
-Format otveta, esli blyudo raspoznano: snachala kratkiy kommentarij, zatem JSON strogo s etimi polyami. Primer:
-```json
+Format otveta, esli blyudo raspoznano: snachala kratkiy kommentarij, zatem JSON strogo s etimi polyami. Primer (bez kavychek okruzhayushchih bloka):
 {
   "name": "Primer blyuda",
   "calories": 120,
@@ -42,7 +41,6 @@ Format otveta, esli blyudo raspoznano: snachala kratkiy kommentarij, zatem JSON 
   "isCorrection": false,
   "originalName": ""
 }
-```
 Esli blyudo ne raspoznano — napishi ob etom tekstom, bez JSON.
 `;
 
