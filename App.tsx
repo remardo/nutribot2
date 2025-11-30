@@ -519,7 +519,8 @@ const App: React.FC = () => {
             </div>
             
             <div className="mt-auto p-5 text-xs text-center text-gray-500 border-t border-gray-700">
-              NutriBot AI (Convex Backend)
+              <div>NutriBot AI (Convex Backend)</div>
+              <div className="text-gray-600">Версия 1.0</div>
             </div>
           </div>
         </div>
