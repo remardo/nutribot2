@@ -110,10 +110,24 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
     return computeAutoGoals(weight, height);
   }, [formData.weightKg, formData.heightCm]);
 
+  const ensureNumber = (value: number | undefined, fallback: number) => {
+    return Number.isFinite(value) ? (value as number) : fallback;
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const payload = formData.goalsMode === "auto" ? { ...formData, ...autoGoals } : formData;
+      const basePayload = formData.goalsMode === "auto" ? { ...formData, ...autoGoals } : formData;
+      const payload = {
+        ...basePayload,
+        dailyCaloriesGoal: ensureNumber(basePayload.dailyCaloriesGoal, autoGoals.dailyCaloriesGoal),
+        dailyProteinGoal: ensureNumber(basePayload.dailyProteinGoal, autoGoals.dailyProteinGoal),
+        dailyFatGoal: ensureNumber(basePayload.dailyFatGoal, autoGoals.dailyFatGoal),
+        dailyCarbGoal: ensureNumber(basePayload.dailyCarbGoal, autoGoals.dailyCarbGoal),
+        dailyFiberGoal: ensureNumber(basePayload.dailyFiberGoal, autoGoals.dailyFiberGoal),
+        weightKg: Number.isFinite(basePayload.weightKg) ? basePayload.weightKg : undefined,
+        heightCm: Number.isFinite(basePayload.heightCm) ? basePayload.heightCm : undefined,
+      };
       await updateSettingsMutation(payload);
       if (mode === "modal") onClose();
     } catch (error) {
