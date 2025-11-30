@@ -4,7 +4,6 @@ import React, { ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { ConvexHttpClient } from "convex/browser";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -52,19 +51,26 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-// @ts-ignore
-const convex = new ConvexReactClient(convexUrl, {
-  fetch: (url: any, init: any) => {
-    const tg = (window as any).Telegram?.WebApp;
-    if (tg && tg.initData) {
-      init.headers = {
-        ...init.headers,
-        'x-telegram-init-data': tg.initData,
-      };
-    }
-    return fetch(url, init);
-  },
-});
+const convexUrl = import.meta.env.VITE_CONVEX_URL;
+if (!convexUrl) {
+  throw new Error("VITE_CONVEX_URL is not set. Configure it in environment variables.");
+}
+
+// Override global fetch to add Telegram initData header
+const originalFetch = window.fetch;
+window.fetch = function(input, init) {
+  const tg = (window as any).Telegram?.WebApp;
+  if (tg && tg.initData) {
+    init = init || {};
+    init.headers = {
+      ...init.headers,
+      'x-telegram-init-data': tg.initData,
+    };
+  }
+  return originalFetch.call(this, input, init);
+};
+
+const convex = new ConvexReactClient(convexUrl);
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
