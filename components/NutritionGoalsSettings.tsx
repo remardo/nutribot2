@@ -294,25 +294,27 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               inputMode="decimal"
               value={formData.weightKg}
               onChange={(e) => {
-                setHasUserEdited(true);
                 const value = e.target.value;
-                setFormData(prev => {
-                  const next = { ...prev, weightKg: value };
-                  if (prev.goalsMode === "auto") {
-                    const w = parseNumber(value, numericForm.weightKg ?? 70) ?? 70;
-                    const h = numericForm.heightCm ?? 170;
-                    const goals = computeAutoGoals(w, h);
-                    return {
-                      ...next,
-                      dailyCaloriesGoal: goals.dailyCaloriesGoal.toString(),
-                      dailyProteinGoal: goals.dailyProteinGoal.toString(),
-                      dailyFatGoal: goals.dailyFatGoal.toString(),
-                      dailyCarbGoal: goals.dailyCarbGoal.toString(),
-                      dailyFiberGoal: goals.dailyFiberGoal.toString(),
-                    };
-                  }
-                  return next;
-                });
+                handleInputChange('weightKg', value);
+                
+                // Если режим авто, пересчитываем цели
+                if (formData.goalsMode === "auto") {
+                  const w = parseNumber(value, 70) ?? 70;
+                  const h = numericForm.heightCm ?? 170;
+                  const goals = computeAutoGoals(w, h);
+                  
+                  setFormData(prev => ({
+                    ...prev,
+                    weightKg: value,
+                    dailyCaloriesGoal: goals.dailyCaloriesGoal.toString(),
+                    dailyProteinGoal: goals.dailyProteinGoal.toString(),
+                    dailyFatGoal: goals.dailyFatGoal.toString(),
+                    dailyCarbGoal: goals.dailyCarbGoal.toString(),
+                    dailyFiberGoal: goals.dailyFiberGoal.toString(),
+                  }));
+                } else {
+                  setFormData(prev => ({ ...prev, weightKg: value }));
+                }
               }}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="70"
@@ -329,25 +331,27 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               inputMode="decimal"
               value={formData.heightCm}
               onChange={(e) => {
-                setHasUserEdited(true);
                 const value = e.target.value;
-                setFormData(prev => {
-                  const next = { ...prev, heightCm: value };
-                  if (prev.goalsMode === "auto") {
-                    const w = numericForm.weightKg ?? 70;
-                    const h = parseNumber(value, numericForm.heightCm ?? 170) ?? 170;
-                    const goals = computeAutoGoals(w, h);
-                    return {
-                      ...next,
-                      dailyCaloriesGoal: goals.dailyCaloriesGoal.toString(),
-                      dailyProteinGoal: goals.dailyProteinGoal.toString(),
-                      dailyFatGoal: goals.dailyFatGoal.toString(),
-                      dailyCarbGoal: goals.dailyCarbGoal.toString(),
-                      dailyFiberGoal: goals.dailyFiberGoal.toString(),
-                    };
-                  }
-                  return next;
-                });
+                handleInputChange('heightCm', value);
+                
+                // Если режим авто, пересчитываем цели
+                if (formData.goalsMode === "auto") {
+                  const w = numericForm.weightKg ?? 70;
+                  const h = parseNumber(value, 170) ?? 170;
+                  const goals = computeAutoGoals(w, h);
+                  
+                  setFormData(prev => ({
+                    ...prev,
+                    heightCm: value,
+                    dailyCaloriesGoal: goals.dailyCaloriesGoal.toString(),
+                    dailyProteinGoal: goals.dailyProteinGoal.toString(),
+                    dailyFatGoal: goals.dailyFatGoal.toString(),
+                    dailyCarbGoal: goals.dailyCarbGoal.toString(),
+                    dailyFiberGoal: goals.dailyFiberGoal.toString(),
+                  }));
+                } else {
+                  setFormData(prev => ({ ...prev, heightCm: value }));
+                }
               }}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="175"
