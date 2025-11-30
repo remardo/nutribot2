@@ -1,16 +1,20 @@
 import React, { useMemo, useState } from 'react';
-import { DailyLogItem, DailyStats, DayStats } from '../types';
+import NutritionProgressBar from './NutritionProgressBar';
+import { DailyLogItem, DailyStats, DayStats, NutritionProgress } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
-import { Activity, Wheat, Droplet, Dumbbell, BarChart2 } from 'lucide-react';
+import { Activity, Flame, Wheat, Droplet, Dumbbell, Target, BarChart2 } from 'lucide-react';
 
 interface Props {
   log: DailyLogItem[];
   weeklyData?: DayStats[];
+  dailyGoal?: number; // default daily goal
+  progress: NutritionProgress;
+  isTrackingEnabled: boolean;
 }
 
 const COLORS = ['#3b82f6', '#eab308', '#f97316']; // Protein (Blue), Fat (Yellow), Carbs (Orange)
 
-const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [] }) => {
+const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [], dailyGoal = 2200, progress, isTrackingEnabled }) => {
   const [chartMode, setChartMode] = useState<'all' | 'calories' | 'macros' | 'fiber'>('all');
   
   const stats: DailyStats = useMemo(() => {
@@ -38,6 +42,23 @@ const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [] }) => {
   return (
     <div className="h-full overflow-y-auto pb-24 p-4 space-y-6">
       
+      {/* User Profile Header */}
+      <div className="flex items-center gap-4 mb-2">
+        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg border-2 border-gray-800">
+          U
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-white">Прогресс дня</h2>
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <span>Цель: {dailyGoal} ккал</span>
+            <Target size={14} className="text-green-400" />
+            <span>Дефолт: 2200 ккал</span>
+          </div>
+        </div>
+      </div>
+
+      <NutritionProgressBar progress={progress} isEnabled={isTrackingEnabled} />
+
       {log.length === 0 && weeklyData.every(d => d.calories === 0) ? (
         <div className="flex flex-col items-center justify-center py-12 text-gray-500 text-center bg-gray-800 rounded-2xl border border-gray-700">
           <Activity size={48} className="mb-4 opacity-30" />
@@ -46,6 +67,30 @@ const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [] }) => {
         </div>
       ) : (
         <>
+            {/* Header Summary */}
+            <div className="bg-gray-800 rounded-2xl p-5 border border-gray-700 shadow-lg">
+                <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-100 flex items-center gap-2">
+                    <Flame className="text-orange-500" size={20} />
+                    Итоги дня
+                </h2>
+                <span className="text-2xl font-black text-white">{Math.round(stats.totalCalories)} <span className="text-sm font-normal text-gray-400">ккал</span></span>
+                </div>
+                
+                {/* Fiber Progress - Simple Bar */}
+                <div className="mb-4">
+                    <div className="flex justify-between text-xs mb-1">
+                        <span className="text-gray-400">Клетчатка</span>
+                        <span className="text-green-400">{stats.totalFiber.toFixed(1)} / 30г</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                        <div 
+                            className="bg-green-500 h-2 rounded-full transition-all duration-500" 
+                            style={{ width: `${Math.min((stats.totalFiber / 30) * 100, 100)}%` }}
+                        ></div>
+                    </div>
+                </div>
+            </div>
 
             {/* Macros Chart */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

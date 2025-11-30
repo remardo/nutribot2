@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense, lazy } from 'react';
 import { Camera, Send, PieChart as ChartIcon, MessageSquare, Plus, Menu, X, User, Book } from 'lucide-react';
-import { ChatMessage, DailyLogItem, DayStats } from './types';
+import { ChatMessage, DailyLogItem, DayStats, NutritionProgress } from './types';
 import ChatMessageBubble from './components/ChatMessageBubble';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "./convex/_generated/api";
@@ -26,6 +26,7 @@ const App: React.FC = () => {
   
   // Convex Hooks
   const logs = useQuery(api.food.getLogs, { userId: userId || undefined }) || [];
+  const userSettings = useQuery(api.food.getUserSettings, { userId: userId || undefined });
   const addLogMutation = useMutation(api.food.addLog);
   const updateLogMutation = useMutation(api.food.updateLog);
   const updateLogFullMutation = useMutation(api.food.updateLogFull);
@@ -71,6 +72,63 @@ const App: React.FC = () => {
     const today = startOfDay(new Date());
     return allLogs.filter(item => isSameDay(item.timestamp, today));
   }, [allLogs]);
+
+  // Calculate nutrition progress
+  const nutritionProgress: NutritionProgress = useMemo(() => {
+    const defaults = {
+      calories: { current: 0, goal: 2000, percentage: 0 },
+      protein: { current: 0, goal: 100, percentage: 0 },
+      fat: { current: 0, goal: 70, percentage: 0 },
+      carbs: { current: 0, goal: 250, percentage: 0 },
+      fiber: { current: 0, goal: 25, percentage: 0 },
+    };
+
+    if (!userSettings) {
+      return defaults;
+    }
+
+    const currentStats = todayLog.reduce((acc, item) => ({
+      calories: acc.calories + (typeof item.calories === 'number' ? item.calories : 0),
+      protein: acc.protein + (typeof item.protein === 'number' ? item.protein : 0),
+      fat: acc.fat + (typeof item.fat === 'number' ? item.fat : 0),
+      carbs: acc.carbs + (typeof item.carbs === 'number' ? item.carbs : 0),
+      fiber: acc.fiber + (typeof item.fiber === 'number' ? item.fiber : 0),
+    }), { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0 });
+
+    const goal = userSettings.dailyCaloriesGoal;
+    const proteinGoal = userSettings.dailyProteinGoal;
+    const fatGoal = userSettings.dailyFatGoal ?? defaults.fat.goal;
+    const carbGoal = userSettings.dailyCarbGoal ?? defaults.carbs.goal;
+    const fiberGoal = userSettings.dailyFiberGoal;
+
+    return {
+      calories: {
+        current: currentStats.calories,
+        goal: goal,
+        percentage: goal > 0 ? (currentStats.calories / goal) * 100 : 0,
+      },
+      protein: {
+        current: currentStats.protein,
+        goal: proteinGoal,
+        percentage: proteinGoal > 0 ? (currentStats.protein / proteinGoal) * 100 : 0,
+      },
+      fat: {
+        current: currentStats.fat,
+        goal: fatGoal,
+        percentage: fatGoal > 0 ? (currentStats.fat / fatGoal) * 100 : 0,
+      },
+      carbs: {
+        current: currentStats.carbs,
+        goal: carbGoal,
+        percentage: carbGoal > 0 ? (currentStats.carbs / carbGoal) * 100 : 0,
+      },
+      fiber: {
+        current: currentStats.fiber,
+        goal: fiberGoal,
+        percentage: fiberGoal > 0 ? (currentStats.fiber / fiberGoal) * 100 : 0,
+      },
+    };
+  }, [todayLog, userSettings]);
 
   // Initial bot message
   useEffect(() => {
@@ -575,7 +633,9 @@ const App: React.FC = () => {
                     <Suspense fallback={<div className="p-4 text-gray-400">Загрузка статистики...</div>}>
                       <DailyStatsDashboard 
                         log={todayLog} 
-                        weeklyData={weeklyStats}
+                        weeklyData={weeklyStats} 
+                        progress={nutritionProgress}
+                        isTrackingEnabled={userSettings?.isTrackingEnabled || false}
                       />
                     </Suspense>
                     <button 
