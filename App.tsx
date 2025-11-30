@@ -81,6 +81,9 @@ const App: React.FC = () => {
       fat: { current: 0, goal: 70, percentage: 0 },
       carbs: { current: 0, goal: 250, percentage: 0 },
       fiber: { current: 0, goal: 25, percentage: 0 },
+      omega3: { current: 0, goal: 2, percentage: 0, ratioText: "—" },
+      omega6: { current: 0, goal: 10, percentage: 0 },
+      iron: { heme: 0, nonHeme: 0, total: 0, hemeSharePercent: 0 },
     };
 
     if (!userSettings) {
@@ -93,13 +96,24 @@ const App: React.FC = () => {
       fat: acc.fat + (typeof item.fat === 'number' ? item.fat : 0),
       carbs: acc.carbs + (typeof item.carbs === 'number' ? item.carbs : 0),
       fiber: acc.fiber + (typeof item.fiber === 'number' ? item.fiber : 0),
-    }), { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0 });
+      omega3: acc.omega3 + (typeof item.omega3 === 'number' ? item.omega3 : 0),
+      omega6: acc.omega6 + (typeof item.omega6 === 'number' ? item.omega6 : 0),
+      ironHeme: acc.ironHeme + (typeof item.ironHeme === 'number' ? item.ironHeme : 0),
+      ironNonHeme: acc.ironNonHeme + (typeof item.ironNonHeme === 'number' ? item.ironNonHeme : 0),
+    }), { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0, omega3: 0, omega6: 0, ironHeme: 0, ironNonHeme: 0 });
 
     const goal = userSettings.dailyCaloriesGoal;
     const proteinGoal = userSettings.dailyProteinGoal;
     const fatGoal = userSettings.dailyFatGoal ?? defaults.fat.goal;
     const carbGoal = userSettings.dailyCarbGoal ?? defaults.carbs.goal;
     const fiberGoal = userSettings.dailyFiberGoal;
+    const omega3Goal = defaults.omega3.goal;
+    const omega6Goal = defaults.omega6.goal;
+    const ironTotal = currentStats.ironHeme + currentStats.ironNonHeme;
+    const hemeSharePercent = ironTotal > 0 ? (currentStats.ironHeme / ironTotal) * 100 : 0;
+    const omegaRatioText = currentStats.omega3 > 0 && currentStats.omega6 > 0
+      ? `1:${(currentStats.omega6 / currentStats.omega3).toFixed(1)}`
+      : "—";
 
     return {
       calories: {
@@ -126,6 +140,23 @@ const App: React.FC = () => {
         current: currentStats.fiber,
         goal: fiberGoal,
         percentage: fiberGoal > 0 ? (currentStats.fiber / fiberGoal) * 100 : 0,
+      },
+      omega3: {
+        current: currentStats.omega3,
+        goal: omega3Goal,
+        percentage: omega3Goal > 0 ? (currentStats.omega3 / omega3Goal) * 100 : 0,
+        ratioText: omegaRatioText,
+      },
+      omega6: {
+        current: currentStats.omega6,
+        goal: omega6Goal,
+        percentage: omega6Goal > 0 ? (currentStats.omega6 / omega6Goal) * 100 : 0,
+      },
+      iron: {
+        heme: currentStats.ironHeme,
+        nonHeme: currentStats.ironNonHeme,
+        total: ironTotal,
+        hemeSharePercent: hemeSharePercent,
       },
     };
   }, [todayLog, userSettings]);
@@ -268,8 +299,12 @@ const App: React.FC = () => {
                 fat: response.data.fat,
                 carbs: response.data.carbs,
                 fiber: response.data.fiber,
+                omega3: response.data.omega3,
+                omega6: response.data.omega6,
                 omega3to6Ratio: response.data.omega3to6Ratio,
                 ironType: response.data.ironType,
+                ironHeme: response.data.ironHeme,
+                ironNonHeme: response.data.ironNonHeme,
                 importantNutrients: response.data.importantNutrients,
                 imageId: imageStorageId as Id<"_storage"> | undefined,
               });
@@ -291,17 +326,21 @@ const App: React.FC = () => {
               await addLogMutation({
                 userId: userId!, // Обязательно должен быть установлен
                 name: response.data.name,
-                calories: response.data.calories,
-                protein: response.data.protein,
-                fat: response.data.fat,
-                carbs: response.data.carbs,
-                fiber: response.data.fiber,
-                omega3to6Ratio: response.data.omega3to6Ratio,
-                ironType: response.data.ironType,
-                importantNutrients: response.data.importantNutrients,
-                timestamp: Date.now(),
-                imageId: imageStorageId as Id<"_storage"> | undefined,
-              });
+              calories: response.data.calories,
+              protein: response.data.protein,
+              fat: response.data.fat,
+              carbs: response.data.carbs,
+              fiber: response.data.fiber,
+              omega3: response.data.omega3,
+              omega6: response.data.omega6,
+              omega3to6Ratio: response.data.omega3to6Ratio,
+              ironType: response.data.ironType,
+              ironHeme: response.data.ironHeme,
+              ironNonHeme: response.data.ironNonHeme,
+              importantNutrients: response.data.importantNutrients,
+              timestamp: Date.now(),
+              imageId: imageStorageId as Id<"_storage"> | undefined,
+            });
               
               console.log('No matching entry found, created new entry:', response.data.name);
               
@@ -326,8 +365,12 @@ const App: React.FC = () => {
               fat: response.data.fat,
               carbs: response.data.carbs,
               fiber: response.data.fiber,
+              omega3: response.data.omega3,
+              omega6: response.data.omega6,
               omega3to6Ratio: response.data.omega3to6Ratio,
               ironType: response.data.ironType,
+              ironHeme: response.data.ironHeme,
+              ironNonHeme: response.data.ironNonHeme,
               importantNutrients: response.data.importantNutrients,
               timestamp: Date.now(),
               imageId: imageStorageId as Id<"_storage"> | undefined,

@@ -22,13 +22,21 @@ const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [], progress, 
       totalProtein: acc.totalProtein + item.protein,
       totalFat: acc.totalFat + item.fat,
       totalCarbs: acc.totalCarbs + item.carbs,
-      totalFiber: acc.totalFiber + item.fiber
+      totalFiber: acc.totalFiber + item.fiber,
+      totalOmega3: acc.totalOmega3 + (item.omega3 || 0),
+      totalOmega6: acc.totalOmega6 + (item.omega6 || 0),
+      totalIronHeme: acc.totalIronHeme + (item.ironHeme || 0),
+      totalIronNonHeme: acc.totalIronNonHeme + (item.ironNonHeme || 0),
     }), {
       totalCalories: 0,
       totalProtein: 0,
       totalFat: 0,
       totalCarbs: 0,
-      totalFiber: 0
+      totalFiber: 0,
+      totalOmega3: 0,
+      totalOmega6: 0,
+      totalIronHeme: 0,
+      totalIronNonHeme: 0
     });
   }, [log]);
 
@@ -42,6 +50,47 @@ const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [], progress, 
     <div className="h-full overflow-y-auto pb-24 p-4 space-y-6">
       
       <NutritionProgressBar progress={progress} isEnabled={isTrackingEnabled} />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <h3 className="text-sm font-semibold text-gray-200 mb-2">Омега-3 / Омега-6</h3>
+          <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+            <span>Омега-3: {stats.totalOmega3.toFixed(1)} г</span>
+            <span>Омега-6: {stats.totalOmega6.toFixed(1)} г</span>
+          </div>
+          <div className="text-xs text-gray-300 mb-1">Соотношение: {progress.omega3.ratioText}</div>
+          <div className="space-y-2">
+            <div className="w-full bg-gray-700 rounded-full h-2">
+              <div
+                className="h-2 rounded-full bg-blue-400"
+                style={{ width: `${Math.min(progress.omega3.percentage, 120)}%` }}
+              />
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-2">
+              <div
+                className="h-2 rounded-full bg-amber-400"
+                style={{ width: `${Math.min(progress.omega6.percentage, 120)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
+          <h3 className="text-sm font-semibold text-gray-200 mb-2">Железо</h3>
+          <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+            <span>Гемовое: {stats.totalIronHeme.toFixed(1)} мг</span>
+            <span>Негемовое: {stats.totalIronNonHeme.toFixed(1)} мг</span>
+          </div>
+          <div className="text-xs text-gray-300 mb-1">Всего: {progress.iron.total.toFixed(1)} мг</div>
+          <div className="text-xs text-gray-400 mb-1">Доля гемового: {progress.iron.hemeSharePercent.toFixed(0)}%</div>
+          <div className="w-full bg-gray-700 rounded-full h-2">
+            <div
+              className="h-2 rounded-full bg-green-500"
+              style={{ width: `${Math.min(progress.iron.hemeSharePercent, 100)}%` }}
+            />
+          </div>
+        </div>
+      </div>
 
       {log.length === 0 && weeklyData.every(d => d.calories === 0) ? (
         <div className="flex flex-col items-center justify-center py-12 text-gray-500 text-center bg-gray-800 rounded-2xl border border-gray-700">

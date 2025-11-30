@@ -7,11 +7,16 @@ export interface NutrientData {
   carbs: number; // g
   fiber: number; // g
   omega3to6Ratio: string; // e.g., "1:4" or "Low Omega-3"
-  ironType: string; // 'Гемовое' | 'Негемовое' | 'Смешанное' | 'Незначительное'
+  omega3?: number; // g
+  omega6?: number; // g
+  ironType: string; // 'гемовое' | 'негемовое' | 'смешанное' | 'неизвестно'
+  ironHeme?: number; // mg
+  ironNonHeme?: number; // mg
   importantNutrients: string[]; // List of other vitamins/minerals found
   isCorrection?: boolean; // True if this is a correction of previous food
   originalName?: string; // Original name being corrected
 }
+
 
 export interface ChatMessage {
   id: string;
@@ -37,6 +42,10 @@ export interface DailyStats {
   totalFat: number;
   totalCarbs: number;
   totalFiber: number;
+  totalOmega3: number;
+  totalOmega6: number;
+  totalIronHeme: number;
+  totalIronNonHeme: number;
 }
 
 export interface DayStats {
@@ -88,6 +97,23 @@ export interface NutritionProgress {
     current: number;
     goal: number;
     percentage: number;
+  };
+  omega3: {
+    current: number;
+    goal: number;
+    percentage: number;
+    ratioText: string;
+  };
+  omega6: {
+    current: number;
+    goal: number;
+    percentage: number;
+  };
+  iron: {
+    heme: number;
+    nonHeme: number;
+    total: number;
+    hemeSharePercent: number;
   };
 }
 
