@@ -72,6 +72,17 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
     }
   }, [settings]);
 
+  // Автоматическое обновление целей при изменении веса/роста в авто-режиме
+  useEffect(() => {
+    if (formData.goalsMode === "auto" && (formData.weightKg || formData.heightCm)) {
+      const goals = computeAutoGoals(formData.weightKg || 70, formData.heightCm || 170);
+      setFormData(prev => ({
+        ...prev,
+        ...goals
+      }));
+    }
+  }, [formData.weightKg, formData.heightCm, formData.goalsMode]);
+
   const handleInputChange = (field: string, value: number | boolean | GoalsMode | undefined) => {
     setFormData(prev => ({
       ...prev,
@@ -88,18 +99,23 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
       ...goals,
       weightKg: w,
       heightCm: h,
-      goalsMode: "auto",
+      goalsMode: "auto" as GoalsMode,
     }));
   };
 
-  const autoGoals = useMemo(() => computeAutoGoals(formData.weightKg || 0, formData.heightCm || 0), [formData.weightKg, formData.heightCm]);
+  // Оптимизированный расчет авто-целей без лишних перерендеров
+  const autoGoals = useMemo(() => {
+    const weight = formData.weightKg || 70;
+    const height = formData.heightCm || 170;
+    return computeAutoGoals(weight, height);
+  }, [formData.weightKg, formData.heightCm]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
       const payload = formData.goalsMode === "auto" ? { ...formData, ...autoGoals } : formData;
       await updateSettingsMutation(payload);
-      onClose();
+      if (mode === "modal") onClose();
     } catch (error) {
       console.error('Ошибка при сохранении настроек:', error);
       alert('Ошибка при сохранении настроек');
@@ -181,16 +197,14 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               Вес (кг)
             </label>
             <input
+              key="weightKg"
               type="tel"
               inputMode="decimal"
               pattern="[0-9]*"
               value={formData.weightKg ?? ''}
               onChange={(e) => {
                 const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                handleInputChange('weightKg', value);
-                if (formData.goalsMode === "auto") {
-                  applyAutoGoals(value, formData.heightCm);
-                }
+                setFormData(prev => ({ ...prev, weightKg: value }));
               }}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="70"
@@ -206,16 +220,14 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               Рост (см)
             </label>
             <input
+              key="heightCm"
               type="tel"
               inputMode="decimal"
               pattern="[0-9]*"
               value={formData.heightCm ?? ''}
               onChange={(e) => {
                 const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                handleInputChange('heightCm', value);
-                if (formData.goalsMode === "auto") {
-                  applyAutoGoals(formData.weightKg, value);
-                }
+                setFormData(prev => ({ ...prev, heightCm: value }));
               }}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="175"
@@ -240,12 +252,16 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
                 {item.label}
               </label>
               <input
+                key={item.key}
                 type="tel"
                 inputMode="decimal"
                 pattern="[0-9]*"
                 value={(formData as any)[item.key]}
                 disabled={formData.goalsMode === "auto"}
-                onChange={(e) => handleInputChange(item.key, parseFloat(e.target.value) || 0)}
+                onChange={(e) => {
+                  const value = parseFloat(e.target.value) || 0;
+                  setFormData(prev => ({ ...prev, [item.key]: value }));
+                }}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-70"
                 placeholder={item.placeholder}
                 min="0"
