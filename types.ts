@@ -59,13 +59,13 @@ export interface DayStats {
 
 export interface UserSettings {
   id?: string;
-  userId: string;
+  userId?: string | null;
   dailyCaloriesGoal: number;
   dailyProteinGoal: number;
   dailyFiberGoal: number;
   dailyFatGoal: number;
   dailyCarbGoal: number;
-  goalsMode: "auto" | "manual";
+  goalsMode: "auto" | "manual" | string;
   weightKg?: number;
   heightCm?: number;
   isTrackingEnabled: boolean;

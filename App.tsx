@@ -743,6 +743,7 @@ const App: React.FC = () => {
                         <NutritionGoalsSettings 
                           onClose={handleProfileSettingsClose}
                           mode="embedded"
+                          settings={userSettings}
                         />
                       </Suspense>
                     </div>
@@ -759,6 +760,7 @@ const App: React.FC = () => {
           <NutritionGoalsSettings 
             onClose={() => setShowNutritionSettings(false)} 
             mode="modal"
+            settings={userSettings}
           />
         </Suspense>
       )}

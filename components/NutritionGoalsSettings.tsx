@@ -1,14 +1,16 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Target, Save, Settings, Brain, Ruler, Weight } from 'lucide-react';
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useTelegramUser } from '../hooks/useTelegramWebApp';
+import type { UserSettings } from '../types';
 
 type GoalsMode = "auto" | "manual";
 
 interface NutritionGoalsSettingsProps {
   onClose: () => void;
   mode?: "modal" | "embedded";
+  settings?: UserSettings | null | undefined;
 }
 
 type FormState = {
@@ -50,9 +52,8 @@ const computeAutoGoals = (weightKg: number, heightCm: number) => {
   };
 };
 
-const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose, mode = "modal" }) => {
+const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose, mode = "modal", settings }) => {
   const { userId, isAuthenticated } = useTelegramUser();
-  const settings = useQuery(api.food.getUserSettings, { userId: userId || undefined });
   const updateSettingsMutation = useMutation(api.food.updateUserSettings);
   
   const [hasLoadedSettings, setHasLoadedSettings] = useState(false);
