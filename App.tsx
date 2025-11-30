@@ -14,6 +14,8 @@ const DailyStatsDashboard = lazy(() => import('./components/DailyStatsDashboard'
 const FoodArchive = lazy(() => import('./components/FoodArchive'));
 const NutritionGoalsSettings = lazy(() => import('./components/NutritionGoalsSettings'));
 
+const BUILD_VERSION = '1.1.0';
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppTab>('chat');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -520,7 +522,7 @@ const App: React.FC = () => {
             
             <div className="mt-auto p-5 text-xs text-center text-gray-500 border-t border-gray-700">
               <div>NutriBot AI (Convex Backend)</div>
-              <div className="text-gray-600">Версия 1.0</div>
+              <div className="text-gray-600">Версия {BUILD_VERSION}</div>
             </div>
           </div>
         </div>
