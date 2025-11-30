@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense, lazy } from 'react';
-import { Camera, Send, PieChart as ChartIcon, MessageSquare, Plus, Menu, X, User, Book, Settings } from 'lucide-react';
+import { Camera, Send, PieChart as ChartIcon, MessageSquare, Plus, Menu, X, User, Book } from 'lucide-react';
 import { ChatMessage, DailyLogItem, DayStats, NutritionProgress } from './types';
 import ChatMessageBubble from './components/ChatMessageBubble';
 import NutritionProgressBar from './components/NutritionProgressBar';
@@ -505,18 +505,6 @@ const App: React.FC = () => {
                   <User size={20} />
                   Профиль
                 </button>
-                
-                {/* Кнопка настроек питания */}
-                <button 
-                  onClick={() => {
-                    setShowNutritionSettings(true);
-                    setIsMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-gray-300 hover:bg-gray-700/50"
-                >
-                  <Settings size={20} />
-                  Настройки питания
-                </button>
               </nav>
             </div>
             
@@ -710,10 +698,11 @@ const App: React.FC = () => {
                     </div>
 
                     {/* Настройки целей */}
-                    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                    <div className="bg-gray-800 rounded-xl p-4 border border-gray-700">
                       <Suspense fallback={<div className="text-gray-400">Загрузка настроек...</div>}>
                         <NutritionGoalsSettings 
                           onClose={handleProfileSettingsClose}
+                          mode="embedded"
                         />
                       </Suspense>
                     </div>
@@ -729,6 +718,7 @@ const App: React.FC = () => {
         <Suspense fallback={<div className="absolute inset-0 bg-gray-900/80 text-gray-300 flex items-center justify-center">Загрузка настроек...</div>}>
           <NutritionGoalsSettings 
             onClose={() => setShowNutritionSettings(false)} 
+            mode="modal"
           />
         </Suspense>
       )}

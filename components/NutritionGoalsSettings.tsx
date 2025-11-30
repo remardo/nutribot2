@@ -7,6 +7,7 @@ type GoalsMode = "auto" | "manual";
 
 interface NutritionGoalsSettingsProps {
   onClose: () => void;
+  mode?: "modal" | "embedded";
 }
 
 const computeAutoGoals = (weightKg: number, heightCm: number) => {
@@ -36,7 +37,7 @@ const computeAutoGoals = (weightKg: number, heightCm: number) => {
   };
 };
 
-const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose }) => {
+const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose, mode = "modal" }) => {
   const settings = useQuery(api.food.getUserSettings);
   const updateSettingsMutation = useMutation(api.food.updateUserSettings);
   
@@ -96,11 +97,11 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
 
   if (settings === undefined) {
     return (
-      <div className="absolute inset-0 bg-gray-900/95 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-gray-800 rounded-xl p-6 w-full max-w-md mx-4">
-          <div className="animate-pulse text-center">
-            <div className="h-6 bg-gray-700 rounded mb-4"></div>
-            <div className="h-4 bg-gray-700 rounded mb-2"></div>
+      <div className={mode === "modal" ? "absolute inset-0 bg-gray-900/95 backdrop-blur-sm flex items-center justify-center z-50" : "w-full"}>
+        <div className="bg-gray-800 rounded-xl p-6 w-full max-w-xl mx-4">
+          <div className="animate-pulse text-center space-y-3">
+            <div className="h-6 bg-gray-700 rounded"></div>
+            <div className="h-4 bg-gray-700 rounded"></div>
             <div className="h-4 bg-gray-700 rounded w-3/4 mx-auto"></div>
           </div>
         </div>
@@ -108,12 +109,16 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
     );
   }
 
+  const Wrapper = ({ children }: { children: React.ReactNode }) => mode === "modal"
+    ? <div className="absolute inset-0 bg-gray-900/95 backdrop-blur-sm flex items-center justify-center z-50">{children}</div>
+    : <div className="w-full">{children}</div>;
+
   return (
-    <div className="absolute inset-0 bg-gray-900/95 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl p-6 w-full max-w-xl mx-4 border border-gray-700 shadow-2xl space-y-6">
+    <Wrapper>
+      <div className="bg-gray-800 rounded-2xl p-5 w-full max-w-3xl mx-auto border border-gray-700 shadow-xl space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-tr from-green-400 to-blue-500 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-tr from-green-400 to-blue-500 rounded-xl flex items-center justify-center">
               <Settings size={20} className="text-white" />
             </div>
             <div>
@@ -121,17 +126,19 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               <p className="text-gray-400 text-sm">Калории и макросы на день</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white p-1 transition-colors"
-            aria-label="Закрыть"
-          >
-            ✕
-          </button>
+          {mode === "modal" && (
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white p-1 transition-colors"
+              aria-label="Закрыть"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2 flex items-center justify-between p-3 bg-gray-700/40 border border-gray-600 rounded-lg">
+          <div className="col-span-2 flex items-center justify-between p-3 bg-gray-700/30 border border-gray-600 rounded-xl">
             <div className="flex items-center gap-2">
               <Brain size={18} className="text-blue-400" />
               <div>
@@ -155,7 +162,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
             </div>
           </div>
 
-          <div className="p-3 bg-gray-700/30 border border-gray-600 rounded-lg">
+          <div className="p-3 bg-gray-700/30 border border-gray-600 rounded-xl">
             <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
               <Weight size={16} className="text-orange-400" />
               Вес (кг)
@@ -172,7 +179,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
             />
           </div>
 
-          <div className="p-3 bg-gray-700/30 border border-gray-600 rounded-lg">
+          <div className="p-3 bg-gray-700/30 border border-gray-600 rounded-xl">
             <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
               <Ruler size={16} className="text-purple-400" />
               Рост (см)
@@ -220,7 +227,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
           ))}
         </div>
 
-        <div className="p-4 bg-gray-700/30 border border-gray-600 rounded-lg flex items-center justify-between">
+        <div className="p-4 bg-gray-700/30 border border-gray-600 rounded-xl flex items-center justify-between">
           <div>
             <p className="text-white text-sm font-medium">Отслеживание</p>
             <p className="text-gray-400 text-xs">Включить прогресс-бар и цели</p>
@@ -256,7 +263,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
           </button>
         </div>
       </div>
-    </div>
+    </Wrapper>
   );
 };
 
