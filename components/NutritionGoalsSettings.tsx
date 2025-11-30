@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Target, Save, Settings, Brain, Ruler, Weight } from 'lucide-react';
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
+import { useTelegramUser } from '../hooks/useTelegramWebApp';
 
 type GoalsMode = "auto" | "manual";
 
@@ -155,7 +156,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
   };
 
   // Проверяем, аутентифицирован ли пользователь
-  const isAuthenticated = settings && settings.userId !== null;
+  const { isAuthenticated } = useTelegramUser();
 
   if (settings === undefined) {
     return (
@@ -247,9 +248,8 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               Вес (кг)
             </label>
             <input
-              type="tel"
-              inputMode="decimal"
-              pattern="[0-9]*"
+              type="number"
+              inputMode="numeric"
               value={formData.weightKg ?? ''}
               onChange={(e) => {
                 const value = e.target.value ? parseFloat(e.target.value) : undefined;
@@ -277,9 +277,8 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               Рост (см)
             </label>
             <input
-              type="tel"
-              inputMode="decimal"
-              pattern="[0-9]*"
+              type="number"
+              inputMode="numeric"
               value={formData.heightCm ?? ''}
               onChange={(e) => {
                 const value = e.target.value ? parseFloat(e.target.value) : undefined;
@@ -316,9 +315,8 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
                 {item.label}
               </label>
               <input
-                type="tel"
-                inputMode="decimal"
-                pattern="[0-9]*"
+                type="number"
+                inputMode="numeric"
                 value={(formData as any)[item.key]}
                 disabled={formData.goalsMode === "auto"}
                 onChange={(e) => {
