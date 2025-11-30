@@ -11,6 +11,18 @@ interface NutritionGoalsSettingsProps {
   mode?: "modal" | "embedded";
 }
 
+type FormState = {
+  dailyCaloriesGoal: string;
+  dailyProteinGoal: string;
+  dailyFatGoal: string;
+  dailyCarbGoal: string;
+  dailyFiberGoal: string;
+  weightKg: string;
+  heightCm: string;
+  goalsMode: GoalsMode;
+  isTrackingEnabled: boolean;
+};
+
 const computeAutoGoals = (weightKg: number, heightCm: number) => {
   if (!weightKg || !heightCm) {
     return {
@@ -45,15 +57,15 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
   
   const [hasLoadedSettings, setHasLoadedSettings] = useState(false);
   const [hasUserEdited, setHasUserEdited] = useState(false);
-  const [formData, setFormData] = useState({
-    dailyCaloriesGoal: 2000,
-    dailyProteinGoal: 100,
-    dailyFatGoal: 70,
-    dailyCarbGoal: 250,
-    dailyFiberGoal: 25,
-    weightKg: undefined as number | undefined,
-    heightCm: undefined as number | undefined,
-    goalsMode: "manual" as GoalsMode,
+  const [formData, setFormData] = useState<FormState>({
+    dailyCaloriesGoal: "2000",
+    dailyProteinGoal: "100",
+    dailyFatGoal: "70",
+    dailyCarbGoal: "250",
+    dailyFiberGoal: "25",
+    weightKg: "",
+    heightCm: "",
+    goalsMode: "manual",
     isTrackingEnabled: false,
   });
 
@@ -63,13 +75,13 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
     if (settings && !hasUserEdited) {
       setFormData(prev => ({
         ...prev,
-        dailyCaloriesGoal: settings.dailyCaloriesGoal,
-        dailyProteinGoal: settings.dailyProteinGoal,
-        dailyFatGoal: settings.dailyFatGoal,
-        dailyCarbGoal: settings.dailyCarbGoal,
-        dailyFiberGoal: settings.dailyFiberGoal,
-        weightKg: settings.weightKg,
-        heightCm: settings.heightCm,
+        dailyCaloriesGoal: settings.dailyCaloriesGoal?.toString() ?? "",
+        dailyProteinGoal: settings.dailyProteinGoal?.toString() ?? "",
+        dailyFatGoal: settings.dailyFatGoal?.toString() ?? "",
+        dailyCarbGoal: settings.dailyCarbGoal?.toString() ?? "",
+        dailyFiberGoal: settings.dailyFiberGoal?.toString() ?? "",
+        weightKg: settings.weightKg?.toString() ?? "",
+        heightCm: settings.heightCm?.toString() ?? "",
         goalsMode: (settings.goalsMode as GoalsMode) || "manual",
         isTrackingEnabled: settings.isTrackingEnabled,
       }));
@@ -80,7 +92,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
     }
   }, [settings, hasUserEdited, hasLoadedSettings]);
 
-  const handleInputChange = (field: string, value: number | boolean | GoalsMode | undefined) => {
+  const handleInputChange = (field: string, value: string | boolean | GoalsMode) => {
     setHasUserEdited(true);
     setFormData(prev => ({
       ...prev,
@@ -90,42 +102,64 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
 
   const applyAutoGoals = (weight?: number, height?: number) => {
     setHasUserEdited(true);
-    const w = weight ?? formData.weightKg ?? 70;
-    const h = height ?? formData.heightCm ?? 170;
+    const w = weight ?? numericForm.weightKg ?? 70;
+    const h = height ?? numericForm.heightCm ?? 170;
     const goals = computeAutoGoals(w, h);
     setFormData(prev => ({
       ...prev,
-      ...goals,
-      weightKg: w,
-      heightCm: h,
-      goalsMode: "auto" as GoalsMode,
+      dailyCaloriesGoal: goals.dailyCaloriesGoal.toString(),
+      dailyProteinGoal: goals.dailyProteinGoal.toString(),
+      dailyFatGoal: goals.dailyFatGoal.toString(),
+      dailyCarbGoal: goals.dailyCarbGoal.toString(),
+      dailyFiberGoal: goals.dailyFiberGoal.toString(),
+      weightKg: w.toString(),
+      heightCm: h.toString(),
+      goalsMode: "auto",
     }));
   };
 
   // Оптимизированный расчет авто-целей без лишних перерендеров
   const autoGoals = useMemo(() => {
-    const weight = formData.weightKg || 70;
-    const height = formData.heightCm || 170;
+    const weight = parseFloat(formData.weightKg.replace(',', '.')) || 70;
+    const height = parseFloat(formData.heightCm.replace(',', '.')) || 170;
     return computeAutoGoals(weight, height);
   }, [formData.weightKg, formData.heightCm]);
 
-  const ensureNumber = (value: number | undefined, fallback: number) => {
-    return Number.isFinite(value) ? (value as number) : fallback;
+  const parseNumber = (value: string, fallback?: number) => {
+    const normalized = value.replace(',', '.');
+    const num = parseFloat(normalized);
+    if (Number.isFinite(num)) return num;
+    return fallback;
   };
+
+  const ensureNumber = (value: number | undefined, fallback: number) =>
+    Number.isFinite(value) ? (value as number) : fallback;
+
+  const numericForm = useMemo(() => ({
+    dailyCaloriesGoal: parseNumber(formData.dailyCaloriesGoal),
+    dailyProteinGoal: parseNumber(formData.dailyProteinGoal),
+    dailyFatGoal: parseNumber(formData.dailyFatGoal),
+    dailyCarbGoal: parseNumber(formData.dailyCarbGoal),
+    dailyFiberGoal: parseNumber(formData.dailyFiberGoal),
+    weightKg: parseNumber(formData.weightKg),
+    heightCm: parseNumber(formData.heightCm),
+  }), [formData]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const basePayload = formData.goalsMode === "auto" ? { ...formData, ...autoGoals } : formData;
+      const baseNumbers = formData.goalsMode === "auto" ? { ...numericForm, ...autoGoals } : numericForm;
       const payload = {
-        ...basePayload,
-        dailyCaloriesGoal: ensureNumber(basePayload.dailyCaloriesGoal, autoGoals.dailyCaloriesGoal),
-        dailyProteinGoal: ensureNumber(basePayload.dailyProteinGoal, autoGoals.dailyProteinGoal),
-        dailyFatGoal: ensureNumber(basePayload.dailyFatGoal, autoGoals.dailyFatGoal),
-        dailyCarbGoal: ensureNumber(basePayload.dailyCarbGoal, autoGoals.dailyCarbGoal),
-        dailyFiberGoal: ensureNumber(basePayload.dailyFiberGoal, autoGoals.dailyFiberGoal),
-        weightKg: Number.isFinite(basePayload.weightKg) ? basePayload.weightKg : undefined,
-        heightCm: Number.isFinite(basePayload.heightCm) ? basePayload.heightCm : undefined,
+        ...baseNumbers,
+        dailyCaloriesGoal: ensureNumber(baseNumbers.dailyCaloriesGoal, autoGoals.dailyCaloriesGoal),
+        dailyProteinGoal: ensureNumber(baseNumbers.dailyProteinGoal, autoGoals.dailyProteinGoal),
+        dailyFatGoal: ensureNumber(baseNumbers.dailyFatGoal, autoGoals.dailyFatGoal),
+        dailyCarbGoal: ensureNumber(baseNumbers.dailyCarbGoal, autoGoals.dailyCarbGoal),
+        dailyFiberGoal: ensureNumber(baseNumbers.dailyFiberGoal, autoGoals.dailyFiberGoal),
+        weightKg: Number.isFinite(baseNumbers.weightKg) ? baseNumbers.weightKg : undefined,
+        heightCm: Number.isFinite(baseNumbers.heightCm) ? baseNumbers.heightCm : undefined,
+        goalsMode: formData.goalsMode,
+        isTrackingEnabled: formData.isTrackingEnabled,
       };
 
       console.log('Сохранение настроек:', payload);
@@ -256,27 +290,32 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               Вес (кг)
             </label>
             <input
-              type="number"
-              inputMode="numeric"
-              value={formData.weightKg ?? ''}
+              type="text"
+              inputMode="decimal"
+              value={formData.weightKg}
               onChange={(e) => {
-                const value = e.target.value ? parseFloat(e.target.value) : undefined;
                 setHasUserEdited(true);
+                const value = e.target.value;
                 setFormData(prev => {
-                  const newData = { ...prev, weightKg: value };
-                  // Обновляем цели только если в авто-режиме
-                  if (prev.goalsMode === "auto" && (value || prev.heightCm)) {
-                    const goals = computeAutoGoals(value || 70, prev.heightCm || 170);
-                    return { ...newData, ...goals };
+                  const next = { ...prev, weightKg: value };
+                  if (prev.goalsMode === "auto") {
+                    const w = parseNumber(value, numericForm.weightKg ?? 70) ?? 70;
+                    const h = numericForm.heightCm ?? 170;
+                    const goals = computeAutoGoals(w, h);
+                    return {
+                      ...next,
+                      dailyCaloriesGoal: goals.dailyCaloriesGoal.toString(),
+                      dailyProteinGoal: goals.dailyProteinGoal.toString(),
+                      dailyFatGoal: goals.dailyFatGoal.toString(),
+                      dailyCarbGoal: goals.dailyCarbGoal.toString(),
+                      dailyFiberGoal: goals.dailyFiberGoal.toString(),
+                    };
                   }
-                  return newData;
+                  return next;
                 });
               }}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="70"
-              min="30"
-              max="200"
-              step="0.1"
             />
           </div>
 
@@ -286,27 +325,32 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               Рост (см)
             </label>
             <input
-              type="number"
-              inputMode="numeric"
-              value={formData.heightCm ?? ''}
+              type="text"
+              inputMode="decimal"
+              value={formData.heightCm}
               onChange={(e) => {
-                const value = e.target.value ? parseFloat(e.target.value) : undefined;
                 setHasUserEdited(true);
+                const value = e.target.value;
                 setFormData(prev => {
-                  const newData = { ...prev, heightCm: value };
-                  // Обновляем цели только если в авто-режиме
-                  if (prev.goalsMode === "auto" && (prev.weightKg || value)) {
-                    const goals = computeAutoGoals(prev.weightKg || 70, value || 170);
-                    return { ...newData, ...goals };
+                  const next = { ...prev, heightCm: value };
+                  if (prev.goalsMode === "auto") {
+                    const w = numericForm.weightKg ?? 70;
+                    const h = parseNumber(value, numericForm.heightCm ?? 170) ?? 170;
+                    const goals = computeAutoGoals(w, h);
+                    return {
+                      ...next,
+                      dailyCaloriesGoal: goals.dailyCaloriesGoal.toString(),
+                      dailyProteinGoal: goals.dailyProteinGoal.toString(),
+                      dailyFatGoal: goals.dailyFatGoal.toString(),
+                      dailyCarbGoal: goals.dailyCarbGoal.toString(),
+                      dailyFiberGoal: goals.dailyFiberGoal.toString(),
+                    };
                   }
-                  return newData;
+                  return next;
                 });
               }}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="175"
-              min="120"
-              max="230"
-              step="0.5"
             />
           </div>
         </div>
@@ -325,12 +369,12 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
                 {item.label}
               </label>
               <input
-                type="number"
-                inputMode="numeric"
-                value={(formData as any)[item.key]}
+                type="text"
+                inputMode="decimal"
+                value={(formData as any)[item.key] as string}
                 disabled={formData.goalsMode === "auto"}
                 onChange={(e) => {
-                  const value = parseFloat(e.target.value) || 0;
+                  const value = e.target.value;
                   setHasUserEdited(true);
                   setFormData(prev => ({ ...prev, [item.key]: value }));
                 }}
