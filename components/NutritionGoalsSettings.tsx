@@ -43,6 +43,8 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
   const settings = useQuery(api.food.getUserSettings, { userId: userId || undefined });
   const updateSettingsMutation = useMutation(api.food.updateUserSettings);
   
+  const [hasLoadedSettings, setHasLoadedSettings] = useState(false);
+  const [hasUserEdited, setHasUserEdited] = useState(false);
   const [formData, setFormData] = useState({
     dailyCaloriesGoal: 2000,
     dailyProteinGoal: 100,
@@ -58,7 +60,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (settings) {
+    if (settings && !hasUserEdited) {
       setFormData(prev => ({
         ...prev,
         dailyCaloriesGoal: settings.dailyCaloriesGoal,
@@ -71,10 +73,15 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
         goalsMode: (settings.goalsMode as GoalsMode) || "manual",
         isTrackingEnabled: settings.isTrackingEnabled,
       }));
+      setHasLoadedSettings(true);
+    } else if (settings === null && !hasLoadedSettings) {
+      // Нет сохраненных настроек, но первый загрузочный проход завершен
+      setHasLoadedSettings(true);
     }
-  }, [settings]);
+  }, [settings, hasUserEdited, hasLoadedSettings]);
 
   const handleInputChange = (field: string, value: number | boolean | GoalsMode | undefined) => {
+    setHasUserEdited(true);
     setFormData(prev => ({
       ...prev,
       [field]: value,
@@ -82,6 +89,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
   };
 
   const applyAutoGoals = (weight?: number, height?: number) => {
+    setHasUserEdited(true);
     const w = weight ?? formData.weightKg ?? 70;
     const h = height ?? formData.heightCm ?? 170;
     const goals = computeAutoGoals(w, h);
@@ -131,6 +139,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
       }
 
       await updateSettingsMutation({ ...payload, userId });
+      setHasUserEdited(false);
       console.log('Настройки успешно сохранены');
       
       if (mode === "modal") onClose();
@@ -157,7 +166,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
   };
 
 
-  if (settings === undefined) {
+  if (settings === undefined && !hasLoadedSettings) {
     return (
       <div className={mode === "modal" ? "absolute inset-0 bg-gray-900/95 backdrop-blur-sm flex items-center justify-center z-50" : "w-full"}>
         <div className="bg-gray-800 rounded-xl p-6 w-full max-w-xl mx-4">
@@ -252,6 +261,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               value={formData.weightKg ?? ''}
               onChange={(e) => {
                 const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                setHasUserEdited(true);
                 setFormData(prev => {
                   const newData = { ...prev, weightKg: value };
                   // Обновляем цели только если в авто-режиме
@@ -281,6 +291,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               value={formData.heightCm ?? ''}
               onChange={(e) => {
                 const value = e.target.value ? parseFloat(e.target.value) : undefined;
+                setHasUserEdited(true);
                 setFormData(prev => {
                   const newData = { ...prev, heightCm: value };
                   // Обновляем цели только если в авто-режиме
@@ -320,6 +331,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
                 disabled={formData.goalsMode === "auto"}
                 onChange={(e) => {
                   const value = parseFloat(e.target.value) || 0;
+                  setHasUserEdited(true);
                   setFormData(prev => ({ ...prev, [item.key]: value }));
                 }}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-70"
