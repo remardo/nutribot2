@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense, laz
 import { Camera, Send, PieChart as ChartIcon, MessageSquare, Plus, Menu, X, User, Book } from 'lucide-react';
 import { ChatMessage, DailyLogItem, DayStats, NutritionProgress } from './types';
 import ChatMessageBubble from './components/ChatMessageBubble';
-import NutritionProgressBar from './components/NutritionProgressBar';
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "./convex/_generated/api";
 import { Id } from "./convex/_generated/dataModel";
@@ -263,7 +262,6 @@ const App: React.FC = () => {
               const entryToUpdate = recentEntries.sort((a, b) => b.timestamp - a.timestamp)[0];
               await updateLogFullMutation({
                 id: entryToUpdate.id as Id<"dailyLogs">,
-                userId: userId || undefined,
                 name: response.data.name,
                 calories: response.data.calories,
                 protein: response.data.protein,
@@ -407,7 +405,7 @@ const App: React.FC = () => {
 
   const handleDeleteLog = async (id: string) => {
     if (window.confirm('Вы уверены, что хотите удалить эту запись?')) {
-      await deleteLogMutation({ id: id as Id<"dailyLogs">, userId: userId || undefined });
+      await deleteLogMutation({ id: id as Id<"dailyLogs"> });
     }
   };
 
@@ -554,11 +552,6 @@ const App: React.FC = () => {
         {/* Chat View */}
         <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ${activeTab === 'chat' ? 'translate-x-0' : '-translate-x-full'}`}>
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                {/* Прогресс-бар питания */}
-                <NutritionProgressBar 
-                  progress={nutritionProgress} 
-                  isEnabled={userSettings?.isTrackingEnabled || false} 
-                />
                 
                 {messages.map((msg) => (
                     <ChatMessageBubble 
@@ -612,7 +605,7 @@ const App: React.FC = () => {
                                 }
                             }}
                             placeholder="Сообщение..."
-                            className="w-full bg-transparent border-none focus:ring-0 text-gray-100 resize-none max-h-24 py-1"
+                            className="w-full bg-gray-900 text-white placeholder-gray-500 border-none focus:ring-0 resize-none max-h-24 py-1 caret-blue-400"
                             rows={1}
                             style={{ minHeight: '24px' }}
                         />
@@ -638,7 +631,12 @@ const App: React.FC = () => {
              {activeTab === 'stats' && (
                 <>
                     <Suspense fallback={<div className="p-4 text-gray-400">Загрузка статистики...</div>}>
-                      <DailyStatsDashboard log={todayLog} weeklyData={weeklyStats} />
+                      <DailyStatsDashboard 
+                        log={todayLog} 
+                        weeklyData={weeklyStats} 
+                        progress={nutritionProgress}
+                        isTrackingEnabled={userSettings?.isTrackingEnabled || false}
+                      />
                     </Suspense>
                     <button 
                         onClick={() => setActiveTab('chat')}
@@ -684,18 +682,6 @@ const App: React.FC = () => {
                           </p>
                         </div>
                       )}
-                    </div>
-
-                    {/* Информация о прогрессе */}
-                    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-                      <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                        <ChartIcon size={20} className="text-blue-400" />
-                        Прогресс на сегодня
-                      </h3>
-                      <NutritionProgressBar 
-                        progress={nutritionProgress} 
-                        isEnabled={userSettings?.isTrackingEnabled || false} 
-                      />
                     </div>
 
                     {/* Настройки целей */}
