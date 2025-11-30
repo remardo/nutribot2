@@ -278,6 +278,16 @@ const App: React.FC = () => {
       // Auto-save to log if analysis is successful and has valid data (also works in demo mode)
       if (response.data && response.data.name && response.data.calories > 0) {
         try {
+          const safeNum = (val: any, fallback = 0) => (Number.isFinite(val) ? Number(val) : fallback);
+          const newNutrients = {
+            omega3: safeNum(response.data.omega3, 0),
+            omega6: safeNum(response.data.omega6, 0),
+            ironHeme: safeNum(response.data.ironHeme, 0),
+            ironNonHeme: safeNum(response.data.ironNonHeme, 0),
+            omega3to6Ratio: response.data.omega3to6Ratio || "0:0",
+            ironType: response.data.ironType || "неизвестно",
+          };
+
           // Check if this is a correction of an existing entry
           if (response.data.isCorrection) {
             // Find the most recent entry with similar name (within last hour)
@@ -299,12 +309,12 @@ const App: React.FC = () => {
                 fat: response.data.fat,
                 carbs: response.data.carbs,
                 fiber: response.data.fiber,
-                omega3: response.data.omega3,
-                omega6: response.data.omega6,
-                omega3to6Ratio: response.data.omega3to6Ratio,
-                ironType: response.data.ironType,
-                ironHeme: response.data.ironHeme,
-                ironNonHeme: response.data.ironNonHeme,
+                omega3: newNutrients.omega3,
+                omega6: newNutrients.omega6,
+                omega3to6Ratio: newNutrients.omega3to6Ratio,
+                ironType: newNutrients.ironType,
+                ironHeme: newNutrients.ironHeme,
+                ironNonHeme: newNutrients.ironNonHeme,
                 importantNutrients: response.data.importantNutrients,
                 imageId: imageStorageId as Id<"_storage"> | undefined,
               });
@@ -327,20 +337,20 @@ const App: React.FC = () => {
                 userId: userId!, // Обязательно должен быть установлен
                 name: response.data.name,
               calories: response.data.calories,
-              protein: response.data.protein,
-              fat: response.data.fat,
-              carbs: response.data.carbs,
-              fiber: response.data.fiber,
-              omega3: response.data.omega3,
-              omega6: response.data.omega6,
-              omega3to6Ratio: response.data.omega3to6Ratio,
-              ironType: response.data.ironType,
-              ironHeme: response.data.ironHeme,
-              ironNonHeme: response.data.ironNonHeme,
-              importantNutrients: response.data.importantNutrients,
-              timestamp: Date.now(),
-              imageId: imageStorageId as Id<"_storage"> | undefined,
-            });
+                protein: response.data.protein,
+                fat: response.data.fat,
+                carbs: response.data.carbs,
+                fiber: response.data.fiber,
+                omega3: newNutrients.omega3,
+                omega6: newNutrients.omega6,
+                omega3to6Ratio: newNutrients.omega3to6Ratio,
+                ironType: newNutrients.ironType,
+                ironHeme: newNutrients.ironHeme,
+                ironNonHeme: newNutrients.ironNonHeme,
+                importantNutrients: response.data.importantNutrients,
+                timestamp: Date.now(),
+                imageId: imageStorageId as Id<"_storage"> | undefined,
+              });
               
               console.log('No matching entry found, created new entry:', response.data.name);
               
@@ -365,12 +375,12 @@ const App: React.FC = () => {
               fat: response.data.fat,
               carbs: response.data.carbs,
               fiber: response.data.fiber,
-              omega3: response.data.omega3,
-              omega6: response.data.omega6,
-              omega3to6Ratio: response.data.omega3to6Ratio,
-              ironType: response.data.ironType,
-              ironHeme: response.data.ironHeme,
-              ironNonHeme: response.data.ironNonHeme,
+              omega3: newNutrients.omega3,
+              omega6: newNutrients.omega6,
+              omega3to6Ratio: newNutrients.omega3to6Ratio,
+              ironType: newNutrients.ironType,
+              ironHeme: newNutrients.ironHeme,
+              ironNonHeme: newNutrients.ironNonHeme,
               importantNutrients: response.data.importantNutrients,
               timestamp: Date.now(),
               imageId: imageStorageId as Id<"_storage"> | undefined,
