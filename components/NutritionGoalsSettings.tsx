@@ -181,7 +181,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               Вес (кг)
             </label>
             <input
-              type="number"
+              type="tel"
               inputMode="decimal"
               pattern="[0-9]*"
               value={formData.weightKg ?? ''}
@@ -206,7 +206,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               Рост (см)
             </label>
             <input
-              type="number"
+              type="tel"
               inputMode="decimal"
               pattern="[0-9]*"
               value={formData.heightCm ?? ''}
@@ -240,7 +240,7 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
                 {item.label}
               </label>
               <input
-                type="number"
+                type="tel"
                 inputMode="decimal"
                 pattern="[0-9]*"
                 value={(formData as any)[item.key]}
