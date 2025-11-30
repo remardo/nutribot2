@@ -72,17 +72,6 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
     }
   }, [settings]);
 
-  // Автоматическое обновление целей при изменении веса/роста в авто-режиме
-  useEffect(() => {
-    if (formData.goalsMode === "auto" && (formData.weightKg || formData.heightCm)) {
-      const goals = computeAutoGoals(formData.weightKg || 70, formData.heightCm || 170);
-      setFormData(prev => ({
-        ...prev,
-        ...goals
-      }));
-    }
-  }, [formData.weightKg, formData.heightCm, formData.goalsMode]);
-
   const handleInputChange = (field: string, value: number | boolean | GoalsMode | undefined) => {
     setFormData(prev => ({
       ...prev,
@@ -128,15 +117,45 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
         weightKg: Number.isFinite(basePayload.weightKg) ? basePayload.weightKg : undefined,
         heightCm: Number.isFinite(basePayload.heightCm) ? basePayload.heightCm : undefined,
       };
+
+      console.log('Сохранение настроек:', payload);
+      
+      // Проверяем аутентификацию перед сохранением
+      if (!isAuthenticated) {
+        console.log('Пользователь не аутентифицирован, применяем настройки локально');
+        alert('Настройки применены для текущей сессии. Для постоянного сохранения используйте Telegram WebApp.');
+        if (mode === "modal") onClose();
+        return;
+      }
+
       await updateSettingsMutation(payload);
+      console.log('Настройки успешно сохранены');
+      
       if (mode === "modal") onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка при сохранении настроек:', error);
-      alert('Ошибка при сохранении настроек');
+      
+      let errorMessage = 'Ошибка при сохранении настроек';
+      
+      // Более подробная обработка ошибок
+      if (error?.message) {
+        if (error.message.includes('User not authenticated')) {
+          errorMessage = 'Пожалуйста, используйте приложение в Telegram для сохранения настроек';
+        } else if (error.message.includes('Network')) {
+          errorMessage = 'Проблема с сетью. Проверьте подключение к интернету';
+        } else {
+          errorMessage = `Ошибка: ${error.message}`;
+        }
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsSaving(false);
     }
   };
+
+  // Проверяем, аутентифицирован ли пользователь
+  const isAuthenticated = settings && settings.userId !== null;
 
   if (settings === undefined) {
     return (
@@ -180,6 +199,23 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
           )}
         </div>
 
+        {!isAuthenticated && (
+          <div className="p-3 bg-yellow-900/30 border border-yellow-600 rounded-xl">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center">
+                <span className="text-yellow-900 text-xs font-bold">!</span>
+              </div>
+              <div>
+                <p className="text-yellow-200 text-sm font-medium">Демо-режим</p>
+                <p className="text-yellow-300/80 text-xs">
+                  Настройки сохраняются только при использовании в Telegram WebApp. 
+                  В обычном браузере они применяются только для текущей сессии.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2 flex items-center justify-between p-3 bg-gray-700/30 border border-gray-600 rounded-xl">
             <div className="flex items-center gap-2">
@@ -211,14 +247,21 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               Вес (кг)
             </label>
             <input
-              key="weightKg"
               type="tel"
               inputMode="decimal"
               pattern="[0-9]*"
               value={formData.weightKg ?? ''}
               onChange={(e) => {
                 const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                setFormData(prev => ({ ...prev, weightKg: value }));
+                setFormData(prev => {
+                  const newData = { ...prev, weightKg: value };
+                  // Обновляем цели только если в авто-режиме
+                  if (prev.goalsMode === "auto" && (value || prev.heightCm)) {
+                    const goals = computeAutoGoals(value || 70, prev.heightCm || 170);
+                    return { ...newData, ...goals };
+                  }
+                  return newData;
+                });
               }}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="70"
@@ -234,14 +277,21 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
               Рост (см)
             </label>
             <input
-              key="heightCm"
               type="tel"
               inputMode="decimal"
               pattern="[0-9]*"
               value={formData.heightCm ?? ''}
               onChange={(e) => {
                 const value = e.target.value ? parseFloat(e.target.value) : undefined;
-                setFormData(prev => ({ ...prev, heightCm: value }));
+                setFormData(prev => {
+                  const newData = { ...prev, heightCm: value };
+                  // Обновляем цели только если в авто-режиме
+                  if (prev.goalsMode === "auto" && (prev.weightKg || value)) {
+                    const goals = computeAutoGoals(prev.weightKg || 70, value || 170);
+                    return { ...newData, ...goals };
+                  }
+                  return newData;
+                });
               }}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="175"
@@ -266,7 +316,6 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
                 {item.label}
               </label>
               <input
-                key={item.key}
                 type="tel"
                 inputMode="decimal"
                 pattern="[0-9]*"
