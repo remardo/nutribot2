@@ -39,7 +39,8 @@ const computeAutoGoals = (weightKg: number, heightCm: number) => {
 };
 
 const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose, mode = "modal" }) => {
-  const settings = useQuery(api.food.getUserSettings);
+  const { userId, isAuthenticated } = useTelegramUser();
+  const settings = useQuery(api.food.getUserSettings, { userId: userId || undefined });
   const updateSettingsMutation = useMutation(api.food.updateUserSettings);
   
   const [formData, setFormData] = useState({
@@ -122,14 +123,14 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
       console.log('Сохранение настроек:', payload);
       
       // Проверяем аутентификацию перед сохранением
-      if (!isAuthenticated) {
+      if (!isAuthenticated || !userId) {
         console.log('Пользователь не аутентифицирован, применяем настройки локально');
         alert('Настройки применены для текущей сессии. Для постоянного сохранения используйте Telegram WebApp.');
         if (mode === "modal") onClose();
         return;
       }
 
-      await updateSettingsMutation(payload);
+      await updateSettingsMutation({ ...payload, userId });
       console.log('Настройки успешно сохранены');
       
       if (mode === "modal") onClose();
@@ -155,8 +156,6 @@ const NutritionGoalsSettings: React.FC<NutritionGoalsSettingsProps> = ({ onClose
     }
   };
 
-  // Проверяем, аутентифицирован ли пользователь
-  const { isAuthenticated } = useTelegramUser();
 
   if (settings === undefined) {
     return (

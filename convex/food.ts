@@ -2,7 +2,9 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 // Функция для получения ID пользователя из Telegram WebApp
-function getCurrentUserId(ctx: any): string | null {
+function getCurrentUserId(ctx: any, providedUserId?: string | null): string | null {
+  if (providedUserId) return providedUserId;
+
   const tg = ctx.request?.headers?.get?.('x-telegram-init-data') || ctx.request?.headers?.get?.('tg-init-data');
   if (!tg) return null;
 
@@ -22,10 +24,10 @@ function getCurrentUserId(ctx: any): string | null {
 }
 
 export const getLogs = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx, args) => {
     // Получаем ID пользователя из Telegram WebApp
-    const userId = getCurrentUserId(ctx);
+    const userId = getCurrentUserId(ctx, args.userId);
     
     let logs;
     if (!userId) {
@@ -73,7 +75,7 @@ export const addLog = mutation({
   },
   handler: async (ctx, args) => {
     // Если userId не передан, пытаемся получить его из контекста
-    const finalUserId = args.userId || getCurrentUserId(ctx) || undefined;
+    const finalUserId = args.userId || getCurrentUserId(ctx, args.userId) || undefined;
     
     const logData = {
       ...args,
@@ -98,6 +100,7 @@ export const updateLog = mutation({
 export const updateLogFull = mutation({
   args: {
     id: v.id("dailyLogs"),
+    userId: v.optional(v.string()),
     name: v.optional(v.string()),
     calories: v.optional(v.number()),
     protein: v.optional(v.number()),
@@ -110,10 +113,10 @@ export const updateLogFull = mutation({
     imageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
+    const { id, userId, ...updates } = args;
     
     // Проверяем, что запись принадлежит текущему пользователю
-    const currentUserId = getCurrentUserId(ctx);
+    const currentUserId = getCurrentUserId(ctx, userId);
     if (!currentUserId) {
       throw new Error("User not authenticated");
     }
@@ -132,10 +135,10 @@ export const updateLogFull = mutation({
 });
 
 export const deleteLog = mutation({
-  args: { id: v.id("dailyLogs") },
+  args: { id: v.id("dailyLogs"), userId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     // Проверяем, что запись принадлежит текущему пользователю
-    const currentUserId = getCurrentUserId(ctx);
+    const currentUserId = getCurrentUserId(ctx, args.userId);
     if (!currentUserId) {
       throw new Error("User not authenticated");
     }
@@ -175,9 +178,9 @@ export const deleteImage = mutation({
 });
 
 export const getUserSettings = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = getCurrentUserId(ctx);
+  args: { userId: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const userId = getCurrentUserId(ctx, args.userId);
     
     const defaultSettings = {
       userId,
@@ -215,6 +218,7 @@ export const getUserSettings = query({
 
 export const updateUserSettings = mutation({
   args: {
+    userId: v.optional(v.string()),
     dailyCaloriesGoal: v.number(),
     dailyProteinGoal: v.number(),
     dailyFiberGoal: v.number(),
@@ -226,7 +230,7 @@ export const updateUserSettings = mutation({
     isTrackingEnabled: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const userId = getCurrentUserId(ctx);
+    const userId = getCurrentUserId(ctx, args.userId);
     if (!userId) {
       throw new Error("User not authenticated");
     }
@@ -236,9 +240,10 @@ export const updateUserSettings = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .unique();
 
+    const { userId: _, ...userArgs } = args;
     const settingsData = {
       userId,
-      ...args,
+      ...userArgs,
       updatedAt: Date.now(),
     };
 

@@ -26,8 +26,8 @@ const App: React.FC = () => {
   const { userId, userName, isAuthenticated } = useTelegramUser();
   
   // Convex Hooks
-  const logs = useQuery(api.food.getLogs) || [];
-  const userSettings = useQuery(api.food.getUserSettings);
+  const logs = useQuery(api.food.getLogs, { userId: userId || undefined }) || [];
+  const userSettings = useQuery(api.food.getUserSettings, { userId: userId || undefined });
   const addLogMutation = useMutation(api.food.addLog);
   const updateLogMutation = useMutation(api.food.updateLog);
   const updateLogFullMutation = useMutation(api.food.updateLogFull);
@@ -263,6 +263,7 @@ const App: React.FC = () => {
               const entryToUpdate = recentEntries.sort((a, b) => b.timestamp - a.timestamp)[0];
               await updateLogFullMutation({
                 id: entryToUpdate.id as Id<"dailyLogs">,
+                userId: userId || undefined,
                 name: response.data.name,
                 calories: response.data.calories,
                 protein: response.data.protein,
@@ -406,7 +407,7 @@ const App: React.FC = () => {
 
   const handleDeleteLog = async (id: string) => {
     if (window.confirm('Вы уверены, что хотите удалить эту запись?')) {
-      await deleteLogMutation({ id: id as Id<"dailyLogs"> });
+      await deleteLogMutation({ id: id as Id<"dailyLogs">, userId: userId || undefined });
     }
   };
 
