@@ -1,132 +1,105 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Camera, Send, PieChart as ChartIcon, MessageSquare, Plus, ArrowLeft, Menu, X, User, Settings, FileText, Calendar, Book } from 'lucide-react';
-import { ChatMessage, DailyLogItem, NutrientData, DailyStats, DayStats } from './types';
+import { Camera, Send, PieChart as ChartIcon, MessageSquare, Plus, Menu, X, User, Settings, Book, Trash2, Mic, MicOff } from 'lucide-react';
+import { ChatMessage, DailyLogItem, NutrientData, DailyStats, DayStats, UserGoals, Wallet } from './types';
 import ChatMessageBubble from './components/ChatMessageBubble';
 import DailyStatsDashboard from './components/DailyStatsDashboard';
 import FoodArchive from './components/FoodArchive';
-import { useQuery, useMutation, useAction } from "convex/react";
-import { api } from "./convex/_generated/api";
-import { Id } from "./convex/_generated/dataModel";
+import TypingIndicator from './components/TypingIndicator';
+import SettingsModal from './components/SettingsModal';
+import { sendMessageToGemini } from './services/geminiService';
+import * as db from './services/dbService';
+import { processNewLog, calculatePlateRating } from './services/gamificationService';
+import { useSpeechRecognition } from './hooks/useSpeechRecognition';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'chat' | 'stats' | 'archive'>('chat');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  // Convex Hooks
-  const logs = useQuery(api.food.getLogs) || [];
-  const addLogMutation = useMutation(api.food.addLog);
-  const updateLogMutation = useMutation(api.food.updateLog);
-  const deleteLogMutation = useMutation(api.food.deleteLog);
-  const generateUploadUrl = useMutation(api.food.generateUploadUrl);
-  const analyzeFoodAction = useAction(api.gemini.analyzeFood);
-
-  // Map Convex logs to App types (handling ID conversion)
-  const allLogs: DailyLogItem[] = useMemo(() => logs.map(log => ({
-    ...log,
-    id: log._id, // Map Convex _id to id
-  })), [logs]);
+  // Notification State
+  const [rewardNotification, setRewardNotification] = useState<{show: boolean, rewards: Partial<Wallet>}>({show: false, rewards: {}});
+  
+  const [allLogs, setAllLogs] = useState<DailyLogItem[]>([]);
+  const [weeklyStats, setWeeklyStats] = useState<DayStats[]>([]);
+  const [userGoals, setUserGoals] = useState<UserGoals>(db.getUserGoals());
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Calculate Weekly Stats on Client side from allLogs
-  const weeklyStats: DayStats[] = useMemo(() => {
-    const stats: DayStats[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateString = d.toDateString(); 
-      
-      const dayLogs = allLogs.filter(item => new Date(item.timestamp).toDateString() === dateString);
-      
-      const dayStats = dayLogs.reduce((acc, item) => ({
-        calories: acc.calories + item.calories,
-        protein: acc.protein + item.protein,
-        fat: acc.fat + item.fat,
-        carbs: acc.carbs + item.carbs,
-        fiber: acc.fiber + item.fiber
-      }), { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0 });
-        
-      stats.push({
-        date: d.toLocaleDateString('ru-RU', { weekday: 'short' }),
-        ...dayStats
-      });
-    }
-    return stats;
-  }, [allLogs]);
+  // Hook for Speech Recognition
+  const { isListening, toggleListening } = useSpeechRecognition((transcript) => {
+    setInputText(prev => {
+      const spacer = prev && !prev.endsWith(' ') ? ' ' : '';
+      return prev + spacer + transcript;
+    });
+  });
 
-  // Derived state for today's log
+  // Derived state for today's log (for Stats and Context)
   const todayLog = useMemo(() => {
     const today = new Date().toDateString();
     return allLogs.filter(item => new Date(item.timestamp).toDateString() === today);
   }, [allLogs]);
 
-  // Initial load and Telegram Init
+  // Initial load
   useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    if (tg) {
-      tg.ready();
-      tg.expand();
-    }
+    setAllLogs(db.getAllLogs());
+    setWeeklyStats(db.getLast7DaysStats());
     
-    // Initial bot message
-    setMessages([
-      {
-        id: 'init',
-        role: 'model',
-        text: "👋 Привет! Я NutriBot. Отправь мне фото еды или напиши, что ты съел, и я рассчитаю КБЖУ и нутриенты.",
-        timestamp: Date.now()
-      }
-    ]);
+    const savedChat = db.getChatHistory();
+    if (savedChat.length > 0) {
+      setMessages(savedChat);
+    } else {
+      setMessages([
+        {
+          id: 'init',
+          role: 'model',
+          text: "👋 Привет! Я NutriBot. Отправь мне фото еды или напиши, что ты съел, и я рассчитаю КБЖУ и нутриенты.",
+          timestamp: Date.now()
+        }
+      ]);
+    }
   }, []);
 
-  // Handle Telegram Back Button
+  // Save Chat History whenever it changes
   useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    if (!tg) return;
-
-    const handleBack = () => {
-      if (isMenuOpen) {
-        setIsMenuOpen(false);
-      } else if (activeTab !== 'chat') {
-        setActiveTab('chat');
-      }
-    };
-
-    if (activeTab !== 'chat' || isMenuOpen) {
-      tg.BackButton.show();
-      tg.BackButton.onClick(handleBack);
-    } else {
-      tg.BackButton.hide();
+    if (messages.length > 0) {
+      db.saveChatHistory(messages);
     }
-
-    return () => {
-      tg.BackButton.offClick(handleBack);
-    };
-  }, [activeTab, isMenuOpen]);
+  }, [messages]);
 
   // Scroll to bottom
   useEffect(() => {
     if (activeTab === 'chat') {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, activeTab]);
+  }, [messages, activeTab, isLoading]);
 
-  const handleSendMessage = async (text?: string, imageFile?: File, imagePreview?: string) => {
+  // Hide notification after 3s
+  useEffect(() => {
+      if (rewardNotification.show) {
+          const timer = setTimeout(() => {
+              setRewardNotification(prev => ({...prev, show: false}));
+          }, 4000);
+          return () => clearTimeout(timer);
+      }
+  }, [rewardNotification.show]);
+
+  const handleSendMessage = async (text?: string, images?: string[]) => {
     const content = text || inputText;
-    if ((!content.trim() && !imageFile) || isLoading) return;
+    const hasImages = images && images.length > 0;
+    
+    if ((!content.trim() && !hasImages) || isLoading) return;
 
     setInputText('');
     
-    // Optimistic User Message
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
       text: content,
-      image: imagePreview, // For display only
+      images: images,
       timestamp: Date.now()
     };
 
@@ -134,44 +107,36 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-      let imageStorageId: Id<"_storage"> | undefined = undefined;
-
-      // 1. Upload Image to Convex Storage if exists
-      if (imageFile) {
-        const postUrl = await generateUploadUrl();
-        const result = await fetch(postUrl, {
-          method: "POST",
-          headers: { "Content-Type": imageFile.type },
-          body: imageFile,
-        });
-        const { storageId } = await result.json();
-        imageStorageId = storageId;
-      }
-
-      // 2. Prepare context stats
-      const currentStats = todayLog.reduce((acc, item) => ({
+      // Calculate current stats to give context to Gemini
+      const stats = todayLog.reduce((acc, item) => ({
         totalCalories: acc.totalCalories + item.calories,
         totalProtein: acc.totalProtein + item.protein,
         totalFat: acc.totalFat + item.fat,
         totalCarbs: acc.totalCarbs + item.carbs,
-        totalFiber: acc.totalFiber + item.fiber
-      }), { totalCalories: 0, totalProtein: 0, totalFat: 0, totalCarbs: 0, totalFiber: 0 });
+        totalFiber: acc.totalFiber + item.fiber,
+        totalOmega3: acc.totalOmega3 + (item.omega3 || 0),
+        totalOmega6: acc.totalOmega6 + (item.omega6 || 0),
+        totalIron: acc.totalIron + (item.ironTotal || 0),
+        totalHemeIron: acc.totalHemeIron + (item.hemeIron || 0),
+      }), {
+         totalCalories: 0,
+         totalProtein: 0,
+         totalFat: 0,
+         totalCarbs: 0,
+         totalFiber: 0,
+         totalOmega3: 0,
+         totalOmega6: 0,
+         totalIron: 0,
+         totalHemeIron: 0
+      } as DailyStats);
 
-      const statsString = `[Текущие итоги дня: ${Math.round(currentStats.totalCalories)}ккал, Б:${currentStats.totalProtein.toFixed(1)}г, Ж:${currentStats.totalFat.toFixed(1)}г, У:${currentStats.totalCarbs.toFixed(1)}г]`;
-      
-      // 3. Call Server Action
-      const response = await analyzeFoodAction({
-        message: content,
-        imageStorageId,
-        history: messages.slice(-6).map(m => ({ role: m.role, text: m.text })),
-        currentStats: statsString,
-      });
+      const response = await sendMessageToGemini(messages, content, images, stats);
 
       const botMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'model',
         text: response.text,
-        data: response.data ? { ...response.data, imageStorageId } : undefined, // Attach storageId to data for saving later
+        data: response.data,
         timestamp: Date.now()
       };
 
@@ -179,62 +144,115 @@ const App: React.FC = () => {
 
     } catch (error) {
       console.error(error);
-      setMessages(prev => [...prev, {
-        id: crypto.randomUUID(),
-        role: 'model',
-        text: "Произошла ошибка при обращении к серверу. Попробуйте позже.",
-        timestamp: Date.now()
-      }]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Create local preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        // Send file object for upload, base64 for local preview
-        handleSendMessage("Проанализируй это изображение", file, base64);
-      };
-      reader.readAsDataURL(file);
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setIsLoading(true); 
+      
+      const promises = Array.from(files).map(file => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve(reader.result as string); 
+          };
+          reader.readAsDataURL(file as Blob);
+        });
+      });
+
+      try {
+        const base64Images = await Promise.all(promises);
+        const msgText = files.length > 1 
+          ? `Проанализируй эти ${files.length} фото` 
+          : "Проанализируй это изображение";
+          
+        setIsLoading(false); 
+        handleSendMessage(msgText, base64Images);
+      } catch (err) {
+        console.error("Error reading files", err);
+        setIsLoading(false);
+      }
+      
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
-  const handleAddToLog = async (data: NutrientData & { imageStorageId?: string }) => {
-    await addLogMutation({
-        name: data.name,
-        calories: data.calories,
-        protein: data.protein,
-        fat: data.fat,
-        carbs: data.carbs,
-        fiber: data.fiber,
-        omega3to6Ratio: data.omega3to6Ratio,
-        ironType: data.ironType,
-        importantNutrients: data.importantNutrients,
-        timestamp: Date.now(),
-        imageId: data.imageStorageId as Id<"_storage"> | undefined,
+  const handleAddToLog = (data: NutrientData, aiText?: string) => {
+    const plateRating = calculatePlateRating(data, userGoals);
+
+    const newItem = db.addToDailyLog({
+      ...data,
+      aiAnalysis: aiText,
+      plateRating: plateRating 
     });
     
-    // Switch to stats to show progress
+    const updatedLogs = [newItem, ...allLogs].sort((a,b) => b.timestamp - a.timestamp);
+    setAllLogs(updatedLogs);
+    setWeeklyStats(db.getLast7DaysStats());
+    
+    const currentTodayLogs = updatedLogs.filter(item => 
+        new Date(item.timestamp).toDateString() === new Date().toDateString()
+    );
+    
+    const { rewards } = processNewLog(newItem, currentTodayLogs, userGoals);
+    
+    if (rewards.energy || rewards.balance || rewards.mindfulness) {
+        setRewardNotification({ show: true, rewards });
+    }
+    
     setActiveTab('stats');
   };
 
-  const handleUpdateLog = async (id: string, updates: Partial<DailyLogItem>) => {
-    // Only pass fields that allow updating. Currently 'note' is the main one.
-    await updateLogMutation({
-        id: id as Id<"dailyLogs">,
-        note: updates.note,
-    });
+  const handleUpdateLog = (id: string, updates: Partial<DailyLogItem>) => {
+    const updatedLogs = db.updateLogItem(id, updates);
+    setAllLogs(updatedLogs.sort((a, b) => b.timestamp - a.timestamp));
+    setWeeklyStats(db.getLast7DaysStats());
   };
 
-  const handleDeleteLog = async (id: string) => {
+  const handleDeleteLog = (id: string) => {
     if (window.confirm('Вы уверены, что хотите удалить эту запись?')) {
-      await deleteLogMutation({ id: id as Id<"dailyLogs"> });
+      db.deleteLogItem(id);
+      setAllLogs(prev => prev.filter(item => item.id !== id));
+      setWeeklyStats(db.getLast7DaysStats());
     }
+  };
+
+  const handleClearChat = () => {
+    if (window.confirm('Очистить историю чата?')) {
+        db.clearChatHistory();
+        setMessages([
+            {
+              id: 'init',
+              role: 'model',
+              text: "Чат очищен. Чем я могу помочь?",
+              timestamp: Date.now()
+            }
+        ]);
+        setIsMenuOpen(false);
+    }
+  };
+
+  const handleOpenSettings = () => {
+    setIsMenuOpen(false);
+    setIsSettingsOpen(true);
+  };
+
+  const handleSaveGoals = (newGoals: UserGoals) => {
+    db.saveUserGoals(newGoals);
+    setUserGoals(newGoals);
+  };
+
+  const handleQuickGoalUpdate = (key: keyof UserGoals, delta: number) => {
+      const currentVal = userGoals[key];
+      const newVal = Math.max(0, parseFloat((currentVal + delta).toFixed(1)));
+      const newGoals = { ...userGoals, [key]: newVal };
+      handleSaveGoals(newGoals);
   };
 
   const handleNavigate = (tab: 'chat' | 'stats' | 'archive') => {
@@ -245,7 +263,7 @@ const App: React.FC = () => {
   const getHeaderTitle = () => {
     switch(activeTab) {
       case 'chat': return 'Чат';
-      case 'stats': return 'Личный кабинет';
+      case 'stats': return 'Экспедиция'; 
       case 'archive': return 'Архив блюд';
       default: return 'NutriBot';
     }
@@ -254,16 +272,34 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-gray-900 text-gray-100 font-sans relative overflow-hidden">
       
-      {/* Side Menu Drawer */}
+      {rewardNotification.show && (
+          <div className="absolute top-16 left-1/2 transform -translate-x-1/2 bg-gray-800 border border-green-500/50 shadow-2xl rounded-xl px-6 py-4 z-50 animate-fade-in-up flex items-center gap-4">
+              <div className="text-green-400 font-bold">Награда получена!</div>
+              <div className="flex gap-3">
+                  {rewardNotification.rewards.energy && (
+                      <span className="text-yellow-400 font-bold text-sm">+{rewardNotification.rewards.energy} Energy</span>
+                  )}
+                  {rewardNotification.rewards.balance && (
+                      <span className="text-blue-400 font-bold text-sm">+{rewardNotification.rewards.balance} Balance</span>
+                  )}
+              </div>
+          </div>
+      )}
+
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+        currentGoals={userGoals} 
+        onSave={handleSaveGoals} 
+      />
+
       {isMenuOpen && (
         <div className="absolute inset-0 z-50 flex">
-          {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsMenuOpen(false)}
           />
           
-          {/* Menu Content */}
           <div className="relative w-72 bg-gray-800 h-full shadow-2xl flex flex-col transform transition-transform duration-300 ease-out border-r border-gray-700">
             <div className="p-5 border-b border-gray-700 flex justify-between items-center">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -291,7 +327,7 @@ const App: React.FC = () => {
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'stats' ? 'bg-blue-600/10 text-blue-400 border border-blue-600/20' : 'text-gray-300 hover:bg-gray-700/50'}`}
                 >
                   <User size={20} />
-                  Личный кабинет
+                  Нутри-Экспедиция
                 </button>
                 <button 
                   onClick={() => handleNavigate('archive')}
@@ -300,17 +336,32 @@ const App: React.FC = () => {
                   <Book size={20} />
                   Архив блюд
                 </button>
+                <div className="pt-4 mt-4 border-t border-gray-700/50">
+                  <button 
+                    onClick={handleClearChat}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-900/20 transition-colors"
+                  >
+                    <Trash2 size={20} />
+                    Очистить чат
+                  </button>
+                  <button 
+                    onClick={handleOpenSettings}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-700/30 transition-colors"
+                  >
+                    <Settings size={20} />
+                    Настройки
+                  </button>
+                </div>
               </nav>
             </div>
             
             <div className="mt-auto p-5 text-xs text-center text-gray-500 border-t border-gray-700">
-              NutriBot AI (Convex Backend)
+              NutriBot AI v2.0
             </div>
           </div>
         </div>
       )}
 
-      {/* Header */}
       <header className="flex-none h-14 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-4 z-10 shadow-md">
         <div className="flex items-center gap-3">
           <button 
@@ -324,7 +375,6 @@ const App: React.FC = () => {
           </h1>
         </div>
         
-        {/* Toggle Stats/Chat */}
         <div className="flex bg-gray-700 rounded-lg p-1">
             <button 
                 onClick={() => setActiveTab('chat')}
@@ -341,10 +391,8 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content Area */}
       <main className="flex-1 overflow-hidden relative">
         
-        {/* Chat View */}
         <div className={`absolute inset-0 flex flex-col transition-transform duration-300 ${activeTab === 'chat' ? 'translate-x-0' : '-translate-x-full'}`}>
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
                 {messages.map((msg) => (
@@ -356,21 +404,11 @@ const App: React.FC = () => {
                     />
                 ))}
                 {isLoading && (
-                    <div className="flex w-full mb-4 justify-start">
-                        <div className="bg-gray-800 p-3 rounded-2xl rounded-bl-none border border-gray-700 flex items-center gap-2 text-gray-400 text-sm">
-                            <div className="animate-pulse flex gap-1">
-                                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full"></span>
-                                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animation-delay-200"></span>
-                                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animation-delay-400"></span>
-                            </div>
-                            Анализирую (на сервере)...
-                        </div>
-                    </div>
+                   <TypingIndicator />
                 )}
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Area */}
             <div className="flex-none p-3 bg-gray-800 border-t border-gray-700 pb-safe">
                 <div className="max-w-4xl mx-auto flex items-end gap-2">
                     <button 
@@ -384,9 +422,21 @@ const App: React.FC = () => {
                         ref={fileInputRef} 
                         onChange={handleFileUpload} 
                         accept="image/*" 
+                        multiple 
                         className="hidden" 
                     />
                     
+                    <button
+                        onClick={toggleListening}
+                        className={`p-3 rounded-full transition-all duration-300 ${
+                            isListening 
+                            ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30 animate-pulse ring-1 ring-red-500/50' 
+                            : 'text-gray-400 hover:text-blue-400 bg-gray-700/50 hover:bg-gray-700'
+                        }`}
+                    >
+                        {isListening ? <MicOff size={22} /> : <Mic size={22} />}
+                    </button>
+
                     <div className="flex-1 bg-gray-900 rounded-2xl border border-gray-700 flex items-center px-4 py-2 focus-within:border-blue-500 transition-colors">
                         <textarea
                             value={inputText}
@@ -397,7 +447,7 @@ const App: React.FC = () => {
                                     handleSendMessage();
                                 }
                             }}
-                            placeholder="Сообщение..."
+                            placeholder={isListening ? "Слушаю..." : "Сообщение..."}
                             className="w-full bg-transparent border-none focus:ring-0 text-gray-100 resize-none max-h-24 py-1"
                             rows={1}
                             style={{ minHeight: '24px' }}
@@ -419,11 +469,16 @@ const App: React.FC = () => {
             </div>
         </div>
 
-        {/* Stats View */}
         <div className={`absolute inset-0 bg-gray-900 transition-transform duration-300 ${activeTab === 'stats' ? 'translate-x-0' : (activeTab === 'archive' ? '-translate-x-full' : 'translate-x-full')}`}>
              {activeTab === 'stats' && (
                 <>
-                    <DailyStatsDashboard log={todayLog} weeklyData={weeklyStats} />
+                    <DailyStatsDashboard 
+                        log={todayLog} 
+                        weeklyData={weeklyStats} 
+                        allLogs={allLogs}
+                        userGoals={userGoals}
+                        onUpdateGoal={handleQuickGoalUpdate}
+                    />
                     <button 
                         onClick={() => setActiveTab('chat')}
                         className="absolute bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-full shadow-lg shadow-blue-900/40 transition-transform hover:scale-110 z-20"
@@ -434,7 +489,6 @@ const App: React.FC = () => {
              )}
         </div>
 
-        {/* Archive View */}
         <div className={`absolute inset-0 bg-gray-900 transition-transform duration-300 ${activeTab === 'archive' ? 'translate-x-0' : 'translate-x-full'}`}>
              {activeTab === 'archive' && (
                 <FoodArchive 

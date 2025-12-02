@@ -2,6 +2,7 @@
   "name": "NutriBot AI",
   "description": "Телеграм-бот для трекинга питания на базе Gemini. Распознает еду по фото, считает КБЖУ, клетчатку, Омега-3/6 и тип железа. Ведет дневник питания.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "microphone"
   ]
 }
