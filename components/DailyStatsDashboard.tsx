@@ -1,8 +1,9 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { DailyLogItem, DailyStats, DayStats, UserGoals, UserGamificationState, Achievement, Habit, HabitTier } from '../types';
 import { initializeOrGetState, getCurrentRank, getNextRank, getHabitTierInfo, getAllAchievementsList } from '../services/gamificationService';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, Sector } from 'recharts';
-import { Zap, Scale, Sparkles, Map, Scroll, BarChart2, Check, HelpCircle, Trophy, Lock, Fish, Anchor, X, Plus, Minus, Calendar, Star, Medal, Award, Flame, Dumbbell, Droplet, Wheat } from 'lucide-react';
+import { Zap, Scale, Sparkles, Map, Scroll, Check, HelpCircle, Trophy, Lock, Fish, Anchor, X, Plus, Minus, Calendar, Award, Flame, Dumbbell, Droplet, Wheat, Medal } from 'lucide-react';
 import ExpeditionMap from './ExpeditionMap';
 import QuestBoard from './QuestBoard';
 import InfoModal from './InfoModal';
@@ -20,7 +21,7 @@ interface Props {
 
 const COLORS = ['#3b82f6', '#eab308', '#f97316']; 
 
-// ... (CustomPieTooltip, renderActiveShape remain same) ...
+// Custom Tooltip Component for Pie Chart
 const CustomPieTooltip = ({ active, payload, total }: any) => {
     if (active && payload && payload.length) {
         const { name, value, fill } = payload[0];
@@ -41,6 +42,7 @@ const CustomPieTooltip = ({ active, payload, total }: any) => {
     return null;
 };
 
+// Active Shape for Hover Effect
 const renderActiveShape = (props: any) => {
     const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
     return (
@@ -53,7 +55,7 @@ const renderActiveShape = (props: any) => {
 
 const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [], allLogs = [], userGoals, onUpdateGoal }) => {
   const [gameState, setGameState] = useState<UserGamificationState | null>(null);
-  const [activeTab, setActiveTab] = useState<'map' | 'quests' | 'habits' | 'stats' | 'achievements'>('map');
+  const [activeTab, setActiveTab] = useState<'map' | 'quests' | 'habits' | 'achievements'>('map');
   const [helpTopic, setHelpTopic] = useState<HelpTopicKey | null>(null);
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   const [pieActiveIndex, setPieActiveIndex] = useState(-1);
@@ -101,9 +103,19 @@ const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [], allLogs = 
   ];
   const totalMacros = stats.totalProtein + stats.totalFat + stats.totalCarbs;
   const nonHemeIron = stats.totalIron - stats.totalHemeIron;
-  const omegaRatio = stats.totalOmega3 > 0 
+  
+  // Calculate Omega Ratio for logic
+  const totalOmega = stats.totalOmega3 + stats.totalOmega6;
+  const omega3Percent = totalOmega > 0 ? (stats.totalOmega3 / totalOmega) * 100 : 0;
+  const omega6Percent = totalOmega > 0 ? (stats.totalOmega6 / totalOmega) * 100 : 0;
+  
+  const omegaRatioDisplay = stats.totalOmega3 > 0 
     ? (stats.totalOmega6 / stats.totalOmega3).toFixed(1) 
     : (stats.totalOmega6 > 0 ? "∞" : "0");
+
+  // Iron Percent
+  const hemePercentOfTotal = userGoals.iron > 0 ? Math.min((stats.totalHemeIron / userGoals.iron) * 100, 100) : 0;
+  const nonHemePercentOfTotal = userGoals.iron > 0 ? Math.min((nonHemeIron / userGoals.iron) * 100, 100) : 0;
 
   const onPieEnter = (_: any, index: number) => {
     setPieActiveIndex(index);
@@ -154,7 +166,7 @@ const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [], allLogs = 
   };
 
   return (
-    <div className="h-full overflow-y-auto pb-24 p-4 space-y-5 relative">
+    <div className="h-full overflow-y-auto pb-24 p-4 space-y-5 relative bg-gray-900">
       
       <InfoModal topic={helpTopic} onClose={() => setHelpTopic(null)} />
       
@@ -223,16 +235,131 @@ const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [], allLogs = 
           <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
       </div>
 
-      {/* 3. Navigation Tabs */}
-      <div className="flex bg-gray-800/50 p-1 rounded-xl overflow-x-auto no-scrollbar gap-1">
+      {/* 3. PERMANENT STATS BLOCK (Always Visible) */}
+      <div className="space-y-4">
+          
+          {/* Macronutrients */}
+          <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700">
+              <h3 className="text-sm font-bold text-gray-300 mb-3">Нутриенты сегодня</h3>
+              <NutrientProgressBar label="Калории" value={stats.totalCalories} target={userGoals.calories} color="bg-red-500" icon={<Flame size={12} className="text-red-400"/>} />
+              <NutrientProgressBar label="Белки" value={stats.totalProtein} target={userGoals.protein} color="bg-blue-500" icon={<Dumbbell size={12} className="text-blue-400"/>} />
+              <NutrientProgressBar label="Жиры" value={stats.totalFat} target={userGoals.fat} color="bg-yellow-500" icon={<Droplet size={12} className="text-yellow-400"/>} />
+              <NutrientProgressBar label="Углеводы" value={stats.totalCarbs} target={userGoals.carbs} color="bg-orange-500" icon={<Wheat size={12} className="text-orange-400"/>} />
+              <NutrientProgressBar label="Клетчатка" value={stats.totalFiber} target={userGoals.fiber} color="bg-green-500" icon={<Wheat size={12} className="text-green-400"/>} />
+          </div>
+
+          {/* Omega & Iron Indicators */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* Omega 3:6 Composition Card */}
+              <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 shadow-sm relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-3 opacity-10"><Fish size={64} /></div>
+                  <h3 className="text-sm font-bold text-gray-300 mb-4 flex items-center gap-2"><Fish size={16} className="text-cyan-400" /> Омега 3:6</h3>
+                  
+                  {/* Big Ratio Display */}
+                  <div className="flex justify-between items-end mb-3 relative z-10">
+                      <div className="text-3xl font-bold text-white tracking-tighter flex items-baseline gap-1">
+                          1:<span className={parseFloat(omegaRatioDisplay) > 5 ? 'text-red-400' : 'text-green-400'}>{omegaRatioDisplay}</span>
+                      </div>
+                      
+                      {/* Interactive Goal Adjuster */}
+                      <div className="flex items-center gap-1 bg-gray-900/50 rounded-lg px-2 py-1 border border-gray-700/50">
+                          {onUpdateGoal && (<button onClick={() => onUpdateGoal('omega3', -0.1)} className="p-0.5 text-red-400 hover:bg-red-900/30 rounded"><Minus size={10} /></button>)}
+                          <span className="text-xs text-gray-400 mx-1">{userGoals.omega3}г</span>
+                          {onUpdateGoal && (<button onClick={() => onUpdateGoal('omega3', 0.1)} className="p-0.5 text-green-400 hover:bg-green-900/30 rounded"><Plus size={10} /></button>)}
+                      </div>
+                  </div>
+
+                  {/* Omega Composition Bar */}
+                  <div className="relative h-6 w-full bg-gray-900/80 rounded-full overflow-hidden flex border border-gray-700 mb-2">
+                      {totalOmega > 0 ? (
+                          <>
+                              <div style={{ width: `${omega3Percent}%` }} className="h-full bg-green-500 relative flex items-center justify-start pl-2 transition-all duration-700">
+                                  {omega3Percent > 10 && <span className="text-[9px] font-bold text-black/70 whitespace-nowrap">ω-3</span>}
+                              </div>
+                              <div style={{ width: `${omega6Percent}%` }} className="h-full bg-red-500 relative flex items-center justify-end pr-2 transition-all duration-700">
+                                  {omega6Percent > 10 && <span className="text-[9px] font-bold text-white/90 whitespace-nowrap">ω-6</span>}
+                              </div>
+                          </>
+                      ) : (
+                          <div className="w-full h-full flex items-center justify-center text-[9px] text-gray-600">Нет данных</div>
+                      )}
+                  </div>
+                  
+                  {/* Legend / Values */}
+                  <div className="flex justify-between text-xs font-mono">
+                      <span className="text-green-400">{stats.totalOmega3.toFixed(2)}г</span>
+                      <span className="text-red-400">{stats.totalOmega6.toFixed(2)}г</span>
+                  </div>
+              </div>
+
+              {/* Iron Composition Card */}
+              <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 shadow-sm relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-3 opacity-10"><Anchor size={64} /></div>
+                  <h3 className="text-sm font-bold text-gray-300 mb-4 flex items-center gap-2"><Anchor size={16} className="text-rose-400" /> Железо</h3>
+
+                  {/* Big Total Display */}
+                  <div className="flex justify-between items-end mb-3 relative z-10">
+                      <div className={`text-3xl font-bold tracking-tighter ${ironStatus === 'excess' ? 'text-red-400' : (ironStatus === 'met' ? "text-green-400" : "text-white")}`}>
+                          {stats.totalIron.toFixed(1)} <span className="text-sm font-normal text-gray-500">мг</span>
+                      </div>
+                      
+                      {/* Interactive Goal Adjuster */}
+                      <div className="flex items-center gap-1 bg-gray-900/50 rounded-lg px-2 py-1 border border-gray-700/50">
+                          {onUpdateGoal && (<button onClick={() => onUpdateGoal('iron', -1)} className="p-0.5 text-red-400 hover:bg-red-900/30 rounded"><Minus size={10} /></button>)}
+                          <span className="text-xs text-gray-400 mx-1">{userGoals.iron} мг</span>
+                          {onUpdateGoal && (<button onClick={() => onUpdateGoal('iron', 1)} className="p-0.5 text-green-400 hover:bg-green-900/30 rounded"><Plus size={10} /></button>)}
+                      </div>
+                  </div>
+
+                  {/* Iron Stacked Bar */}
+                  <div className="relative h-6 w-full bg-gray-900/80 rounded-full overflow-hidden flex border border-gray-700 mb-2">
+                      <div style={{ width: `${hemePercentOfTotal}%` }} className="h-full bg-rose-500 transition-all duration-700"></div>
+                      <div style={{ width: `${nonHemePercentOfTotal}%` }} className="h-full bg-rose-900/60 transition-all duration-700"></div>
+                      
+                      {/* Goal Marker Line */}
+                      <div className="absolute top-0 bottom-0 right-0 w-0.5 bg-white/20 z-10"></div>
+                  </div>
+
+                  {/* Legend */}
+                  <div className="flex justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full bg-rose-500"></div>
+                          <span className="text-gray-400">Гемовое</span>
+                          <span className="text-gray-200 font-mono ml-1">{stats.totalHemeIron.toFixed(1)}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full bg-rose-900/60"></div>
+                          <span className="text-gray-400">Негемовое</span>
+                          <span className="text-gray-200 font-mono ml-1">{nonHemeIron.toFixed(1)}</span>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          {/* Pie Chart */}
+          <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 h-64 shadow-sm">
+            <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                    <Pie data={totalMacros > 0 ? macroData : [{name: 'Empty', value: 1}]} cx="50%" cy="50%" innerRadius={60} outerRadius={80} dataKey="value" stroke="none" paddingAngle={5} activeIndex={pieActiveIndex} activeShape={renderActiveShape} onMouseEnter={onPieEnter} isAnimationActive={true} animationDuration={1000} animationEasing="ease-out">
+                        {totalMacros > 0 ? macroData.map((e, i) => <Cell key={i} fill={COLORS[i]} />) : <Cell fill="#374151" />}
+                    </Pie>
+                    <Tooltip content={<CustomPieTooltip total={totalMacros} />} />
+                    <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                </PieChart>
+            </ResponsiveContainer>
+          </div>
+      </div>
+
+      {/* 4. Gamification Navigation Tabs */}
+      <div className="flex bg-gray-800/50 p-1 rounded-xl overflow-x-auto no-scrollbar gap-1 sticky top-0 z-20 backdrop-blur-md border border-gray-700/30">
           <button onClick={() => setActiveTab('map')} className={`flex-1 min-w-[70px] py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${activeTab === 'map' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}><Map size={14} /> Карта</button>
           <button onClick={() => setActiveTab('quests')} className={`flex-1 min-w-[70px] py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${activeTab === 'quests' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}><Scroll size={14} /> Квесты</button>
           <button onClick={() => setActiveTab('habits')} className={`flex-1 min-w-[70px] py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${activeTab === 'habits' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}><Calendar size={14} /> Привычки</button>
           <button onClick={() => setActiveTab('achievements')} className={`flex-1 min-w-[70px] py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${activeTab === 'achievements' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}><Award size={14} /> Награды</button>
-          <button onClick={() => setActiveTab('stats')} className={`flex-1 min-w-[70px] py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${activeTab === 'stats' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}><BarChart2 size={14} /> Статы</button>
       </div>
 
-      {/* 4. Tab Content */}
+      {/* 5. Gamification Tab Content */}
       <div className="animate-fade-in-up">
           
           {activeTab === 'map' && (
@@ -278,7 +405,7 @@ const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [], allLogs = 
                                   </div>
                                   {tierInfo.next && (
                                       <div className="mt-2 mb-3">
-                                          <div className="flex justify-between text-[10px] text-gray-400 mb-1"><span>{habit.tier === 'none' ? 'Старт' : habit.tier.toUpperCase()}</span><span>{tierInfo.next.label} ({tierInfo.remaining} дн)</span></div>
+                                          <div className="flex justify-between text-[10px] text-gray-400 mb-1"><span>{habit.tier === 'none' ? 'Старт' : habit.tier.toUpperCase()}</span><span>{tierInfo.next.label} ({tierInfo.next.remaining} дн)</span></div>
                                           <div className="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${tierInfo.progress}%` }}></div></div>
                                       </div>
                                   )}
@@ -315,67 +442,6 @@ const DailyStatsDashboard: React.FC<Props> = ({ log, weeklyData = [], allLogs = 
                             </button>
                         )
                     })}
-                  </div>
-              </div>
-          )}
-
-          {activeTab === 'stats' && (
-              <div className="space-y-4">
-                  <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700">
-                      <h3 className="text-sm font-bold text-gray-300 mb-3">Нутриенты сегодня</h3>
-                      <NutrientProgressBar label="Калории" value={stats.totalCalories} target={userGoals.calories} color="bg-red-500" icon={<Flame size={12} className="text-red-400"/>} />
-                      <NutrientProgressBar label="Белки" value={stats.totalProtein} target={userGoals.protein} color="bg-blue-500" icon={<Dumbbell size={12} className="text-blue-400"/>} />
-                      <NutrientProgressBar label="Жиры" value={stats.totalFat} target={userGoals.fat} color="bg-yellow-500" icon={<Droplet size={12} className="text-yellow-400"/>} />
-                      <NutrientProgressBar label="Углеводы" value={stats.totalCarbs} target={userGoals.carbs} color="bg-orange-500" icon={<Wheat size={12} className="text-orange-400"/>} />
-                      <NutrientProgressBar label="Клетчатка" value={stats.totalFiber} target={userGoals.fiber} color="bg-green-500" icon={<Wheat size={12} className="text-green-400"/>} />
-                  </div>
-                  {/* ... Omega/Iron Cards and PieChart (omitted for brevity as they are unchanged) ... */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 shadow-sm relative overflow-hidden">
-                          <div className="absolute top-0 right-0 p-3 opacity-10"><Fish size={64} /></div>
-                          <h3 className="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2"><Fish size={16} className="text-cyan-400" /> Омега 3:6</h3>
-                          <div className="flex justify-between items-end mb-4">
-                              <div className="text-3xl font-bold text-white tracking-tighter">1:<span className={parseFloat(omegaRatio) > 5 ? 'text-red-400' : 'text-green-400'}>{omegaRatio}</span></div>
-                              <div className="text-xs text-gray-400 mb-1">Соотношение</div>
-                          </div>
-                          <div className="space-y-3">
-                              <div>
-                                  <div className="flex justify-between text-xs mb-1"><span className="text-cyan-300">Омега-3</span><div className="flex items-center gap-1.5 text-gray-400"><span className={omega3Status === 'excess' ? "text-red-400 font-bold" : (omega3Status === 'met' ? "text-green-400 font-bold" : "")}>{stats.totalOmega3.toFixed(2)}</span><div className="flex items-center gap-1 bg-gray-900/50 rounded-lg px-1.5 py-0.5 border border-gray-700/50">{onUpdateGoal && (<button onClick={() => onUpdateGoal('omega3', -0.1)} className="p-0.5 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded transition-colors"><Minus size={10} strokeWidth={3} /></button>)}<span className="opacity-80 font-medium">/ {userGoals.omega3}г</span>{onUpdateGoal && (<button onClick={() => onUpdateGoal('omega3', 0.1)} className="p-0.5 text-green-400 hover:text-green-300 hover:bg-green-900/30 rounded transition-colors"><Plus size={10} strokeWidth={3} /></button>)}</div><StatusIndicator status={omega3Status} /></div></div>
-                                  <div className={`w-full bg-gray-700/50 rounded-full h-2 border ${omega3Status === 'excess' ? 'border-red-500/50' : 'border-transparent'}`}><div className={`h-2 rounded-full ${omega3Status === 'excess' ? 'bg-red-500' : 'bg-cyan-500'} ${omega3Status === 'met' ? 'brightness-110 shadow-[0_0_8px_rgba(34,211,238,0.3)]' : ''}`} style={{ width: `${Math.min((stats.totalOmega3/userGoals.omega3)*100, 100)}%`}}></div></div>
-                              </div>
-                              <div>
-                                  <div className="flex justify-between text-xs mb-1"><span className="text-indigo-300">Омега-6</span><span className="text-gray-400 flex items-center gap-1.5"><span className={omega6Status === 'excess' ? "text-red-400 font-bold" : (omega6Status === 'met' ? "text-green-400 font-bold" : "")}>{stats.totalOmega6.toFixed(2)}</span><span className="opacity-60">/ {userGoals.omega6}г</span><StatusIndicator status={omega6Status} /></span></div>
-                                  <div className={`w-full bg-gray-700/50 rounded-full h-2 border ${omega6Status === 'excess' ? 'border-red-500/50' : 'border-transparent'}`}><div className={`h-2 rounded-full ${omega6Status === 'excess' ? 'bg-red-500' : 'bg-indigo-500'} ${omega6Status === 'met' ? 'brightness-110 shadow-[0_0_8px_rgba(99,102,241,0.3)]' : ''}`} style={{ width: `${Math.min((stats.totalOmega6/userGoals.omega6)*100, 100)}%`}}></div></div>
-                              </div>
-                          </div>
-                      </div>
-                      <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 shadow-sm relative overflow-hidden">
-                          <div className="absolute top-0 right-0 p-3 opacity-10"><Anchor size={64} /></div>
-                          <h3 className="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2"><Anchor size={16} className="text-rose-400" /> Железо</h3>
-                          <div className="flex justify-between items-end mb-2">
-                              <div className={`text-3xl font-bold tracking-tighter ${ironStatus === 'excess' ? 'text-red-400' : (ironStatus === 'met' ? "text-green-400" : "text-white")}`}>{stats.totalIron.toFixed(1)} <span className="text-sm text-gray-500 font-normal">мг</span></div>
-                              <div className="text-xs text-gray-400 mb-1 flex items-center gap-1.5">из <div className="flex items-center gap-1 bg-gray-900/50 rounded-lg px-1.5 py-0.5 border border-gray-700/50 mx-1">{onUpdateGoal && (<button onClick={() => onUpdateGoal('iron', -1)} className="p-0.5 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded transition-colors"><Minus size={10} strokeWidth={3} /></button>)}<span>{userGoals.iron} мг</span>{onUpdateGoal && (<button onClick={() => onUpdateGoal('iron', 1)} className="p-0.5 text-green-400 hover:text-green-300 hover:bg-green-900/30 rounded transition-colors"><Plus size={10} strokeWidth={3} /></button>)}</div><StatusIndicator status={ironStatus} /></div>
-                          </div>
-                          <div className={`w-full bg-gray-700 rounded-full h-3 flex overflow-hidden mb-4 ${ironStatus === 'excess' ? 'border border-red-500/50' : (ironStatus === 'met' ? 'shadow-[0_0_8px_rgba(244,63,94,0.2)]' : '')}`}>
-                              <div className={`${ironStatus === 'excess' ? 'bg-red-500' : 'bg-rose-500'} h-full`} style={{ width: `${Math.min((stats.totalHemeIron / userGoals.iron) * 100, 100)}%` }}></div>
-                              <div className={`${ironStatus === 'excess' ? 'bg-red-900/60' : 'bg-rose-900/60'} h-full`} style={{ width: `${Math.min((nonHemeIron / userGoals.iron) * 100, 100)}%` }}></div>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                              <div className="flex items-center gap-1.5"><div className={`w-2 h-2 rounded-full ${ironStatus === 'excess' ? 'bg-red-500' : 'bg-rose-500'}`}></div><span className="text-gray-300">Гемовое</span><span className="text-gray-500 ml-1">{(stats.totalHemeIron || 0).toFixed(1)}</span></div>
-                              <div className="flex items-center gap-1.5"><div className={`w-2 h-2 rounded-full ${ironStatus === 'excess' ? 'bg-red-900/60' : 'bg-rose-900/60'}`}></div><span className="text-gray-300">Негемовое</span><span className="text-gray-500 ml-1">{nonHemeIron.toFixed(1)}</span></div>
-                          </div>
-                      </div>
-                  </div>
-                  <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700 h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie data={totalMacros > 0 ? macroData : [{name: 'Empty', value: 1}]} cx="50%" cy="50%" innerRadius={60} outerRadius={80} dataKey="value" stroke="none" paddingAngle={5} activeIndex={pieActiveIndex} activeShape={renderActiveShape} onMouseEnter={onPieEnter} isAnimationActive={true} animationDuration={1000} animationEasing="ease-out">
-                                {totalMacros > 0 ? macroData.map((e, i) => <Cell key={i} fill={COLORS[i]} />) : <Cell fill="#374151" />}
-                            </Pie>
-                            <Tooltip content={<CustomPieTooltip total={totalMacros} />} />
-                            <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                        </PieChart>
-                    </ResponsiveContainer>
                   </div>
               </div>
           )}
